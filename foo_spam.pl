@@ -66,32 +66,30 @@ sub get_track_info {
 		return undef if not open_telnet();
 	}
 
-	$telnet->buffer_empty();
-	$telnet->getlines(All => 0, Timeout => 0); # Discard old lines
-
-	if(not defined($telnet->print("trackinfo"))) {
-		close_telnet();
-		if (! open_telnet()) {
-			return undef;
-		}
-	}
-
 	my $line = undef;
-
-	my @result = $telnet->waitfor(Match => '/11[123]\|+.+?\|+.+?\|+(?!0\.[0-5][0-9]).*/', Timeout => 5);
-
-	$line = $result[1] if @result;
-
-	$line = decode_utf8($line);
+	for (1 .. 2) {
+		$telnet->buffer_empty();
+		$telnet->getlines(All => 0, Timeout => 0); # Discard old lines
+	
+		unless (defined($telnet->print("trackinfo")) and defined($telnet->print("trackinfo"))) {
+			close_telnet();
+			if (! open_telnet()) {
+				return undef;
+			}
+		}
+	
+		my @result = $telnet->waitfor(Match => '/11[123]\|+.+?\|+.+?\|+(?!0\.[0-5][0-9]).*/', Timeout => 2);
+	
+		$line = $result[1] if @result;
+	
+		$line = decode_utf8($line);
+	}
 
 	if(not defined($line)) {
 		irc_print("Error retrieving status from foobar2000!");
 		close_telnet();
 		return undef;
 	}
-
-	$telnet->buffer_empty();
-	$telnet->getlines(All => 0, Timeout => 0); # Discard old lines
 
 	my @fields;
 
@@ -700,3 +698,4 @@ if (HAVE_XCHAT or HAVE_IRSSI) {
 } else {
 	close_telnet();
 }
+
