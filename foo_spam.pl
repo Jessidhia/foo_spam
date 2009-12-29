@@ -332,7 +332,6 @@ sub parse_subfunction {
 
 	my @rawargs = split(//, $2);
 	my @args = ();
-	my @failargs = ();
 
 	my $parens = 0;
 	my $str = "";
@@ -353,7 +352,7 @@ sub parse_subfunction {
 	push @args, $str;
 
 	for (my $i = 0; $i < @args; $i++) {
-		$args[$i] = parse_format($args[$i], $info, $sublevel+1, \$failargs[$i]);
+		$args[$i] = parse_format($args[$i], $info, $sublevel+1);
 	}
 
 	if ($func eq "bar") {
@@ -395,7 +394,7 @@ sub parse_subfunction {
 			$iftrue = $test;
 		}
 
-		if (not $failargs[0] and $test) {
+		if ($test) {
 			return $iftrue;
 		} else {
 			return $iffalse;
