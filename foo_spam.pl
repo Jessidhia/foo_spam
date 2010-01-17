@@ -2,7 +2,7 @@
 
 use warnings;
 use strict;
-#use utf8;
+use utf8;
 use Encode;
 
 use Net::Telnet;
