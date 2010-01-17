@@ -43,10 +43,8 @@ our $setting_file   = undef; # Only used by Xchat
 sub open_telnet {
 	$telnet = new Net::Telnet(Port => 3333, Timeout => 10, Errmode => 'return') if not defined($telnet);
 	$telnet_open = $telnet->open("localhost");
-	if($telnet_open) {
-		irc_print("Successfully connected to foobar2000.");
-	} else {
-		irc_print("Error opening telnet connection! Make sure fb2k is running.");
+	unless($telnet_open) {
+		irc_print("Error connecting to foobar2000! Make sure fb2k is running.");
 		irc_print("Also check if foo_controlserver is properly configured.");
 	}
 	return $telnet_open;
@@ -57,37 +55,32 @@ sub close_telnet {
 		$telnet_open = 0;
 		$telnet->put("exit\n");
 		$telnet->close;
-		irc_print("Connection to foobar2000 closed.");
 	}
 }
 
 sub get_track_info {
-	if (!$telnet_open) {
-		return undef if not open_telnet();
-	}
+	return undef unless open_telnet();
 
 	my $line = undef;
-	for (1 .. 2) {
-		$telnet->buffer_empty();
-		$telnet->getlines(All => 0, Timeout => 0); # Discard old lines
-	
-		unless (defined($telnet->print("trackinfo")) and defined($telnet->print("trackinfo"))) {
-			close_telnet();
-			if (! open_telnet()) {
-				return undef;
-			}
-		}
-	
-		my @result = $telnet->waitfor(Match => '/11[123]\|+.+?\|+.+?\|+(?!0\.[0-5][0-9]).*/', Timeout => 2);
-	
-		$line = $result[1] if @result;
-	
-		$line = decode_utf8($line);
+
+	unless (defined($telnet->print("trackinfo"))) {
+		close_telnet();
+		return undef unless open_telnet();
 	}
 
-	if(not defined($line)) {
+	my @result = $telnet->waitfor(Match => '/11[123]\|+.+?\|+.+?\|+(?!0\.[0-5][0-9]).*/', Timeout => 5);
+
+	$line = $result[1] if @result;
+	
+	close_telnet();
+	
+	unless($line) {
 		irc_print("Error retrieving status from foobar2000!");
-		close_telnet();
+		return undef;
+	}
+	
+	unless (eval { $line = decode("UTF-8", $line, Encode::FB_CROAK) }) {
+		irc_print("Error: line is not valid UTF-8. Check foo_controlserver's settings.");
 		return undef;
 	}
 
@@ -684,17 +677,17 @@ if (HAVE_IRSSI) {
 	Xchat::hook_command("foo_tags","print_foo_tags", {help => "lists all available tags"});
 } else {
 	$| = 1;
+	binmode (STDERR, ":encoding(utf-8)");
+	binmode (STDOUT, ":encoding(utf-8)");
 	*irc_print = sub {
-		print (STDERR encode_utf8("@_\n")) if @_;
+		print (STDERR "@_\n") if @_;
 	};
 	$format = join(" ", @ARGV) if $ARGV[0];
-	print encode_utf8(get_np_string() . "\n");
+	my $np = get_np_string();
+	print "$np\n" if $np;
 }
 
 if (HAVE_XCHAT or HAVE_IRSSI) {
 	irc_print(get_intro_string());
-	open_telnet();
-} else {
-	close_telnet();
 }
 
