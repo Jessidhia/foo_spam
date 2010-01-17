@@ -11,7 +11,7 @@ use Time::HiRes qw(usleep);
 
 BEGIN { *HAVE_XCHAT = Xchat->can('register') ? sub {1} : sub {0}; *HAVE_IRSSI = Irssi->can('command_bind') ? sub{1} : sub{0}; }
 
-Xchat::register("foo_spam","0.5.1", "Prints the current playing song from foobar2000.", \&close_telnet) if (HAVE_XCHAT);
+Xchat::register("foo_spam","0.6", "Prints the current playing song from foobar2000.", \&close_telnet) if (HAVE_XCHAT);
 # ChangeLog:
 # 0.6   - Backwards incompatible version. Changes the format syntax, documents functions, implement some others.
 # 0.5.2 - Added discnumber and totaldiscs tags. Changed default format. Silences a warning when a function ends on ",)". Fixed two warnings in the $if family.
