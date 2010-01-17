@@ -13,6 +13,7 @@ BEGIN { *HAVE_XCHAT = Xchat->can('register') ? sub {1} : sub {0}; *HAVE_IRSSI = 
 
 Xchat::register("foo_spam","0.5.1", "Prints the current playing song from foobar2000.", \&close_telnet) if (HAVE_XCHAT);
 # ChangeLog:
+# 0.6   - Backwards incompatible version. Changes the format syntax, documents functions, implement some others.
 # 0.5.2 - Added discnumber and totaldiscs tags. Changed default format. Silences a warning when a function ends on ",)". Fixed two warnings in the $if family.
 # 0.5.1 - Fixed $if, $if2, $and, $or and $xor behavior on certain strings.
 # 0.5   - Support subfunctions and tags with underlines. Changed some other details.
@@ -27,16 +28,20 @@ Xchat::register("foo_spam","0.5.1", "Prints the current playing song from foobar
 
 # Known Bugs:
 # Doesn't support tags that are equal to "?" (foo_controlserver limitation).
-# The progress bar produced by $bar() is imprecise.
-# Missing documentation for $functions().
 
 # TODO:
 # Replace the current format syntax by foobar2000's title format
 
 our $telnet_open    = 0;
 our $telnet         = undef;
-our $default_format = 'player[ (version)]: [albumartist ]\[[date ][album$ifgreater(totaldiscs,1,[\' - Disc \'discnumber\/totaldiscs],)][ #track[/totaltracks]]\] [trackartist - ]title \[position[/length]\][ bitrate\'kbps\'][ codec[ codec_profile]][ <-- comment]';
+our $default_format = <<'EOF';
+$left(%_foobar2000_version%,10) ($replace(%_foobar2000_version%,foobar2000 ,)):
+ [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
+ [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %codec%[ %codec_profile%]][ <-- %comment%]
+EOF
+$default_format =~ s/\R//g;
 our $format         = $default_format;
+our %heap;
 
 our $setting_file   = undef; # Only used by Xchat
 
@@ -83,6 +88,8 @@ sub get_track_info {
 		irc_print("Error: line is not valid UTF-8. Check foo_controlserver's settings.");
 		return undef;
 	}
+	
+	%heap = ();
 
 	my @fields;
 
@@ -94,75 +101,70 @@ sub get_track_info {
 	}
 
 	# Standard settings
-	my $info = {player         => 'foobar2000',
-	            state          => $fields[0],
-	            playlistindex  => $fields[1],
-	            trackindex     => $fields[2],
-	            pos_sec        => $fields[3],
-	            codec          => $fields[4],
-	            bitrate        => $fields[5],
-	            albumartist    => $fields[6],
-	            album          => $fields[7],
-	            date           => $fields[8],
-	            genre          => $fields[9],
-	            track          => $fields[10],
-	            title          => $fields[11]};
-	if ($fields[15]) { # Compatibility with 0.1
-		$info->{'artist'}        = $fields[12];
-		$info->{'totaltracks'}   = $fields[13];
-		$info->{'position'}      = $fields[14];
-		$info->{'length'}        = $fields[15];
+	my $info = {state                  => $fields[0],
+	            playback_time_seconds  => $fields[3],
+	            codec                  => $fields[4],
+	            bitrate                => $fields[5],
+	            'album artist'         => $fields[6],
+	            album                  => $fields[7],
+	            date                   => $fields[8],
+	            genre                  => $fields[9],
+	            tracknumber            => $fields[10],
+	            title                  => $fields[11]};
+	if ($fields[19]) { # 
+		$info->{'artist'}              = $fields[12];
+		$info->{'totaltracks'}         = $fields[13];
+		$info->{'playback_time'}       = $fields[14];
+		$info->{'length'}              = $fields[15];
+		
+		$info->{'_foobar2000_version'} = $fields[16];
+		
+		$info->{'codec_profile'}       = $fields[17];
 
-		if ($fields[16]) {
-			$info->{'version'}   = $fields[16];
-			$info->{'version'}   =~ s/^foobar2000 //;
-
-			# New field in 0.5
-			$info->{'codec_profile'} = $fields[17] if ($fields[17]);
-
-			if ($fields[19]) {
-				# New fields in 0.5.2
-				$info->{'discnumber'} = $fields[18];
-				$info->{'totaldiscs'} = $fields[19];
-			}
-		}
+		$info->{'discnumber'}          = $fields[18];
+		$info->{'totaldiscs'}          = $fields[19];
 	}
 
-	$info->{'state'} = "playing" if ($info->{'state'} eq "111");
-	$info->{'state'} = "paused" if ($info->{'state'} eq "113");
-	$info->{'state'} = "stopped" if ($info->{'state'} eq "112");
+	$info->{'isplaying'} = 1;
+	$info->{'ispaused'} = 0;
+	if ($info->{'state'} eq "113") {
+		$info->{'ispaused'} = 1;
+	} elsif ($info->{'state'} eq "112") {
+		$info->{'isplaying'} = 0;
+	}
+	delete $info->{'state'};
 
 	for (keys %$info) {
 		delete $info->{$_} if (defined($info->{$_}) and $info->{$_} eq '?');
 	}
 
-	$info->{'albumartist'} = $info->{'artist'} unless defined($info->{'albumartist'});
-	$info->{'trackartist'} = $info->{'artist'} if (defined($info->{'artist'}) and $info->{'albumartist'} ne $info->{'artist'});
-
+	$info->{'album artist'} = $info->{'artist'} unless defined($info->{'album artist'});
+	$info->{'track artist'} = $info->{'artist'} if (defined($info->{'artist'}) and $info->{'album artist'} ne $info->{'artist'});
+	
 	if (defined($info->{'length'})) {
-		$info->{'len'} = $info->{'length'}; # Compatibility with 0.4
-
 		my ($h, $m, $s) = split(/\:/, $info->{'length'});
 		if (defined $s) {
-			$info->{'len_sec'} = $s + $m * 60 + $h * 3600;
+			$info->{'length_seconds'} = $s + $m * 60 + $h * 3600;
 		} else {
-			$info->{'len_sec'} = $m + $h * 60;
+			$info->{'length_seconds'} = $m + $h * 60;
 		}
 	}
+	
+	if ($info->{'length_seconds'} and $info->{'playback_time_seconds'}) {
+		$info->{'playback_time_remaining_seconds'} = 
+				$info->{'length_seconds'} - $info->{'playback_time_seconds'};
+	}
 
-	if (not defined($info->{'position'})) {
-		my ($s, $m, $h) = ($info->{'pos_sec'}, 0, 0);
+	for (('playback_time', 'playback_time_remaining')) {
+		unless (defined($info->{$_})) {
+			my $t = $info->{"${_}_seconds"};
 
-		$h = $s / 3600;
-		$s %= 3600;
-
-		$m = $s / 60;
-		$s %= 60;
-
-		if ($h > 0) {
-			$info->{'position'} = sprintf("%d:%02d:%02d", $h, $m, $s);
-		} else {
-			$info->{'position'} = sprintf("%d:%02d", $m, $s);
+			my @u = (0,0);
+			for (my $i = 1; $i >= 0; $i--) {
+				$u[$i] = $t % 60;
+				$t = int($t / 60);
+			}
+			$info->{$_} = sprintf("%s%02d:%02d", $t > 0 ? "$t:" : "", @u[0,1]);
 		}
 	}
 
@@ -170,11 +172,12 @@ sub get_track_info {
 }
 
 sub parse_format {
-	my ($format, $info, $sublevel, $parsed) = @_;
+	my ($format, $info, $sublevel) = @_;
 	$sublevel = 0 if not defined $sublevel;
 
 	my $output = "";
 
+	$format =~ s/\R//g; # ignore line breaks
 	my @chars = split(//,$format);
 
 	# Language Definition
@@ -198,64 +201,71 @@ sub parse_format {
 	my $func = 0;
 	my $tagmode = 0;
 	my $str = "";
+	my $ignore = 0;
 
 	for(my $i = 0; $i < @chars; $i++ ) { # 1st Pass (Lexical analysis, push into @tokens)
-		if ($chars[$i] eq "\\") { # Escaped character
-			$str .= "\\$chars[++$i]";                   # Copy the next character without parsing
-			++$sub if ($chars[$i] eq "[" and $sub > 0); # However, we still need to count [ and ]
-			--$sub if ($chars[$i] eq "]" and $sub > 0); # or the subexpression parser will give wrong results
-		} elsif($literal) { # If on literal mode
+		if($literal) { # If on literal mode
 			$str .= $chars[$i]; # Simply copy everything as-is until an unescaped ' is found
-			if ($chars[$i] eq "'" and ($chars[$i-1] ne "\\" or (defined($chars[$i-2]) and $chars[$i-2] ne "\\"))) {
+			if ($chars[$i] eq "'") {
 				push @tokens, $str;
 				$str = "";
 				$literal = 0;
 			} elsif (not defined($chars[$i+1])) { # This means we ended the string with an uneven number of unescaped 's
-				return "Malformed: mismatched ': $str";
+				warn "Malformed: mismatched ': $str";
+				return undef;
 			}
 		} elsif ($sub) { # If on subexpression mode
 			$str .= $chars[$i]; # Copy everything as-is until an unescaped ] is found
-			if ($chars[$i] eq "[") { # We must copy any sub-subexpressions inside this sub-expression for recursive evaluation
-				++$sub;
-			} elsif ($chars[$i] eq "]" and $chars[$i-1] ne "\\" and --$sub == 0) {
+			if ($chars[$i] eq "'") {
+				$ignore = !$ignore;
+			} elsif ($chars[$i] eq "[") { # We must copy any sub-subexpressions inside this sub-expression for recursive evaluation
+				++$sub unless $ignore;
+			} elsif ($chars[$i] eq "]" and !$ignore and --$sub == 0) {
 				push @tokens, $str;
 				$str = "";
 			} elsif (not defined($chars[$i+1])) { # This means we ended the string without $sub being 0
-				return "Malformed: mismatched [: $str";
+				warn "Malformed: mismatched [: $str";
+				return undef;
 			}
 		} elsif ($tagmode) { # If on tag mode
-			$str .= $chars[$i]; # Copy tags as-is until any non-lowercase-alpha character is found
-			if (not defined($chars[$i+1]) or $chars[$i+1] !~ /[a-z_]/) {
+			$str .= $chars[$i]; # Copy tags as-is until any % character is found
+			if ($chars[$i] eq '%') {
 				push @tokens, $str;
 				$str = "";
 				$tagmode = 0;
+			} elsif (not defined($chars[$i+1])) {
+				warn "Malformed: mismatched %: $str";
+				return undef;
 			}
 		} elsif ($func) { # If on function mode
 			$str .= $chars[$i]; # Copy everything until an unescaped ) is found
-			if ($chars[$i] eq "(" and $chars[$i-1] ne "\\") {
-				$func++;
-			} elsif ($chars[$i] eq ")" and $chars[$i-1] ne "\\" and --$func <= 1) {
+			if ($chars[$i] eq "'") {
+				$ignore = !$ignore;
+			} elsif ($chars[$i] eq "(") {
+				$func++ unless $ignore;
+			} elsif ($chars[$i] eq ")" and !$ignore and --$func <= 1) {
 				push @tokens, $str;
 				$str = "";
 				$func = 0;
 			} elsif (not defined($chars[$i+1])) {
-				return "Malformed: mismatched (: $str";
+				warn "Malformed: mismatched (: $str";
+				return undef;
 			}
 		} else {
-			if ($chars[$i] eq "'" and (not defined($chars[$i-1]) or $chars[$i-1] ne "\\")) {
-				push @tokens, "'$str'" if $str ne ""; # Found an opening quote
+			if ($chars[$i] eq "'") {
+				push @tokens, "$str" if $str ne ""; # Found an opening quote
 				$str = $chars[$i];
 				$literal = 1; # Enter literal mode
-			} elsif ($chars[$i] eq "[" and (not defined($chars[$i-1]) or $chars[$i-1] ne "\\")) {
-				push @tokens, "'$str'" if $str ne ""; # Found a subexpression opener
+			} elsif ($chars[$i] eq "[") {
+				push @tokens, "$str" if $str ne ""; # Found a subexpression opener
 				$str = $chars[$i];
 				$sub = 1; # Enter subexpression mode
-			} elsif ($chars[$i] eq "\$" and (not defined($chars[$i-1]) or $chars[$i-1] ne "\\")) {
-				push @tokens, "'$str'" if $str ne "";
+			} elsif ($chars[$i] eq "\$") {
+				push @tokens, "$str" if $str ne "";
 				$str = $chars[$i];
 				$func = 1; # Enter subfunction mode
-			} elsif ($chars[$i] =~ /[a-z]/) {
-				push @tokens, "'$str'" if $str ne ""; # Found a tag name
+			} elsif ($chars[$i] eq "%") {
+				push @tokens, "$str" if $str ne ""; # Found a tag name
 				$str = $chars[$i];
 				$tagmode = 1; # Enter tag mode
 			} else {
@@ -264,42 +274,28 @@ sub parse_format {
 		}
 	}
 
-	push @tokens, "'$str'" if $str ne ""; # Make sure whatever is left from parsing is added as a literal
-
-	$tagcount = 0;
-	$sub = 0;
-	$func = 0;
+	push @tokens, "$str" if $str ne ""; # Make sure whatever is left from parsing is added as a literal
 
 	foreach my $token (@tokens) { # 2nd Pass, execute tokens
-		if ($token =~ /^'/) { # If the token is a literal, then
-			$token =~ s/^'//; # Strip the opening quote
-			$token =~ s/'$//; # And the closing one
-			$token =~ s/\\(.)/$1/g; # Remove the escape from all escaped characters
-			$output .= $token; # Copy to output
-		} elsif ($token =~ /^\[/) { # If the token is a subexpression
-			$token =~ s/^\[//; # Strip the opening [
-			$token =~ s/\]$//; # And the closing ]
+		if ($token =~ /^'(.*)'$/ or $token =~ /^([^['%\$].*)$/) { # If the token is a literal, then
+			$output .= $token eq "''" ? "'" : $1; # '' means a literal ', otherwise literal contents
+		} elsif ($token =~ /^%(.*)%$/) { # If this is a tag
+			$token = $1;
+			return undef unless defined($info->{$token});
+			$output .= $info->{$token}; # Copy value to output
+		} elsif ($token =~ /^\[(.*)\]$/) { # If the token is a subexpression
+			$token = $1;
 			my $recurse = parse_format($token, $info, $sublevel+1); # Recurse
-			if (defined($recurse) and $recurse ne "") { # If the subexpression is true
-				$output .= $recurse; # Copy result to output
-				$sub++; # Count this as a valid subexpression
-			}
+			$output .= $recurse if defined($recurse);
 		} elsif ($token =~ /^\$/) { # If the token is a subfunction
 			my $res = parse_subfunction($token, $info, $sublevel);
-			if (defined($res) and $res ne "") {
-				$output .= $res;
-				$func++;
-		}
-		} else { # If this is a tag
-			if (!defined($info->{$token})) { # If this tag is not defined
-				return undef; # Fail immediatly
-			}
-			$tagcount++; # Count this as a valid tag
-			$output .= $info->{$token}; # Copy value to output
+			return undef unless defined($res);
+			$output .= $res;
+		} else {
+			warn "Parsing error: $token";
+			return undef;
 		}
 	}
-
-	$$parsed = ($tagcount or $sub or $func) if defined($parsed);
 
 	return $output;
 }
@@ -308,12 +304,7 @@ sub build_output {
 	my ($format, $info, $sublevel) = @_;
 	$sublevel = 0 if not defined $sublevel;
 
-	my $sub;
-	my $output = parse_format($format, $info, $sublevel, \$sub);
-
-	return undef unless ($sub); # Fail if there are no tags and all subexpressions are false
-
-	return $output;
+	return parse_format($format, $info, $sublevel);
 }
 
 sub parse_subfunction {
@@ -326,19 +317,17 @@ sub parse_subfunction {
 	my @rawargs = split(//, $2);
 	my @args = ();
 
-	my $parens = 0;
+	my $ignore = 0;
 	my $str = "";
 	for(my $i = 0; $i < @rawargs; $i++) {
-		if ($i > 0 and $rawargs[$i-1] eq "\\") {
-			# Ignore everything else
-		} elsif($parens) {
-			--$parens if ($rawargs[$i] eq ")");
-		} elsif ($rawargs[$i] eq "(") {
-			++$parens;
+		if ($rawargs[$i] eq "'") {
+			$ignore = !$ignore;
 		} elsif ($rawargs[$i] eq ",") {
-			push @args, $str;
-			$str = "";
-			++$i;
+			unless ($ignore) {
+				push @args, $str;
+				$str = "";
+				++$i;
+			}
 		}
 		$str .= $rawargs[$i] if defined($rawargs[$i]);
 	}
@@ -348,36 +337,53 @@ sub parse_subfunction {
 		$args[$i] = parse_format($args[$i], $info, $sublevel+1);
 	}
 
-	if ($func eq "bar") {
-		my $length = $info->{len_sec};
-		my $pos = $info->{pos_sec};
-
-		my ($len, $fill, $space, $filled) = @args;
-		$filled = 0 unless defined($filled);
-
-		my $fillpos = int($pos * $len / $length + 0.5);
-
-		my $bar = "";
-
-		if ($filled) {
-			for (my $i = 0; $i < $len; $i++) {
-				if ($i < $fillpos) {
-					$bar .= $fill;
-				} else {
-					$bar .= $space;
-				}
-			}
-		} else {
-			for (my $i = 0; $i < $len; $i++) {
-				if ($i == $fillpos) {
-					$bar .= $fill;
-				} else {
-					$bar .= $space;
-				}
-			}
+	if ($func eq "len") {
+		return defined $args[0] ? length($args[0]) : undef;
+	} elsif ($func eq "repeat") {
+		return (defined $args[0] and defined $args[1]) ? ($args[0] x $args[1]) : undef;
+	} elsif ($func eq "trim") {
+		my ($str) = @args;
+		return undef unless defined $str;
+		$str =~ /^\s*+(.*?)\s*+$/;
+		return $1;
+	} elsif ($func eq "put" or $func eq "puts") {
+		my ($var, $val) = @args;
+		return undef unless (defined $var and defined $val);
+		$heap{$var} = $val;
+		return ($func eq "put") ? $val : "";
+	} elsif ($func eq "get") {
+		my ($var) = @args;
+		return undef unless defined $var;
+		return exists $heap{$var} ? $heap{$var} : "";
+	} elsif ($func eq "pad" or $func eq "pad_right" or $func eq "left" or $func eq "cut" or $func eq "padcut" or $func eq "padcut_right") {
+		my ($str, $maxlen, $char) = @args;
+		return undef unless (defined $str and $maxlen);
+		
+		my $pad = ($func eq "pad" or $func eq "pad_right" or $func eq "padcut" or $func eq "padcut_right");
+		my $cut = ($func eq "left" or $func eq "cut" or $func eq "padcut" or $func eq "padcut_right");
+		
+		if ($cut) {
+			$str = substr($str, 0, $maxlen);
 		}
-
-		return "$bar";
+		if ($pad) {
+			$char = " " unless defined $char and $char ne "";
+			$char = substr($char, 0, 1);
+			$str .= ($char x ($maxlen - length($str)));
+		}
+		return $str;
+	} elsif ($func eq "right") {
+		my ($str, $maxlen) = @args;
+		return undef unless (defined $str and defined $maxlen);
+		return substr($str, -$maxlen);
+	} elsif ($func eq "insert" or $func eq "replace") {
+		my ($haystack, $needle, $pos) = @args;
+		return undef unless (defined($haystack) and defined($needle) and defined($pos));
+		if ($func eq "insert") {
+			return substr($haystack, 0, $pos) . $needle . substr($haystack, $pos);
+		}
+		$needle = quotemeta($needle);
+		$haystack =~ s/$needle/$pos/g;
+		return $haystack;
 	} elsif ($func eq "if" or $func eq "if2") {
 		my ($test, $iftrue, $iffalse);
 		if ($func eq "if") {
@@ -395,33 +401,30 @@ sub parse_subfunction {
 	} elsif ($func eq "ifgreater" or $func eq "ifequal" or $func eq "iflonger") {
 		my ($arg1, $arg2, $iftrue, $iffalse) = @args;
 
-		if (defined($arg1)) {
-			# Remove possible literal markers
-			$arg1 =~ s/\'//g;
-			# Ignore spacing
-			$arg1 =~ s/\s+//g;
-		}
-		if (defined($arg2)) {
-			$arg2 =~ s/\'//g;
-			$arg2 =~ s/\s+//g;
-		} else {
+		unless (defined($arg2)) {
 			return $iftrue if (defined($arg1));
 			return $iffalse;
 		}
 		return $iffalse unless (defined($arg1));
 
 		if ($func eq "iflonger") {
-			return $iftrue if (length($arg1) > length($arg2));
+			return defined($arg1) ? $iftrue : $iffalse unless (defined($arg1) and defined($arg2));
+			return $iftrue if (length($arg1) > length(" " x $arg2));
 		} elsif ($func eq "ifequal") {
-			return $iftrue if $arg1 == $arg2;
+			# Any of the args may not be comparable, return false in that case
+			return $iftrue if (defined($arg1) and defined($arg2));
+			return $iffalse unless (defined($arg1) and defined($arg2));
+			eval { return $iftrue if $arg1 == $arg2 };
 		} else { # ifgreater
-			return $iftrue if $arg1 > $arg2;
+			return defined($arg1) ? $iftrue : $iffalse unless (defined($arg1) and defined($arg2));
+			eval { return $iftrue if $arg1 > $arg2 };
 		}
 		return $iffalse;
 	} elsif ($func eq "abbr") {
 		my ($arg1, $arg2) = (0,0);
 		$arg1 = $args[0];
-		$arg2 = $args[1] if ($args[1]);
+		$arg2 = $args[1] if (defined($args[1]));
+		return undef unless (defined $arg1 and $arg2 >= 0);
 
 		if (length($arg1) > $arg2) {
 			my $abbr = "";
@@ -435,11 +438,13 @@ sub parse_subfunction {
 		return $arg1;
 	} elsif ($func eq "num") {
 		my ($arg1, $arg2) = @args;
-		return undef unless $arg1;
+		return undef unless (defined($arg1) and $arg2 > 0);
 		return sprintf("%0${arg2}d", $arg1);
 	} elsif ($func =~ /^(add|sub|mul|div|mod|max|min)$/) {
 		my ($arg1, $arg2) = @args;
 		return undef unless (defined($arg1) and defined($arg2));
+		# Make sure both are numbers. Better way to do this?
+		return undef unless eval { $arg1 != $arg2 or $arg1 == $arg2 };
 		return $arg1 + $arg2 if ($func eq "add");
 		return $arg1 - $arg2 if ($func eq "sub");
 		return $arg1 * $arg2 if ($func eq "mul");
@@ -458,13 +463,25 @@ sub parse_subfunction {
 		return (($arg1 && $arg2) ? 1 : 0) if ($func eq "and");
 		return (($arg1 || $arg2) ? 1 : 0) if ($func eq "or");
 		return (($arg1 && !$arg2) ? 1 : ((!$arg1 && $arg2) ? 1 : 0)) if ($func eq "xor");
-	} elsif ($func eq "strcmp") {
+	} elsif ($func eq "strcmp" or $func eq "stricmp") {
 		my ($arg1, $arg2) = @args;
 		return undef unless (defined($arg1) and defined($arg2));
+		return ((lc($arg1) eq lc($arg2)) ? 1 : 0) if ($func eq "stricmp");
 		return (($arg1 eq $arg2) ? 1 : 0);
-	} else {
-		return undef;
+	} elsif ($func eq "caps") {
+		my ($arg1) = @args;
+		return undef unless defined $arg1;
+		$arg1 =~ s/\b(\S)(\S*)\b/@{[uc($1)]}@{[lc($2)]}/g;
+		return $arg1;
+	} elsif ($func eq "caps2") {
+		my ($arg1) = @args;
+		return undef unless defined $arg1;
+		$arg1 =~ s/\b(\S)/@{[uc($1)]}/g;
+		return $arg1;
 	}
+
+	warn "Unknown or unimplemented function: $function";
+	return undef;
 }
 
 sub get_np_string {
@@ -526,17 +543,16 @@ EOF
 sub get_foo_format_help_string {
 	my $help = <<EOF
 Format Definition
-Example: artist - [album - ]title
+Example: %artist% - [%album% - ]%title%
 
-* lowercasestring <= Is parsed as a tag name. To see a list of tags, use /foo_tags.
-* [expression]    <= Evaluate expression as a regular format.
-If there are no missing tags or at least one subexpression is true,
-then the result of the expression will be included on the output.
-* 'literal'       <= Everything inside the quotes is copied as-is.
-* \\'             <= Inserts a literal '.
+foo_spam now uses the same syntax as foobar2000 (title format), however only
+a subset of it is currently implemented. To see the list of supported
+tags, use /foo_tags. To see the list of supported functions, use
+/foo_funcs.
 
 To change the format, you can use:
-* Irssi: /set foo_format <new format>\n * X-Chat: /set_foo_format <default or new format>
+ * Irssi: /set foo_format <new format>
+ * X-Chat: /set_foo_format <default or new format>
 
 Default: $default_format
 
@@ -547,29 +563,30 @@ EOF
 
 sub get_taglist_string {
 	my $list = <<EOF
-List of available tags:
-* player <= contains the player name (in this case, foobar2000).
-* state <= one of \"paused\", \"playing\" or \"paused\".
-* playlistindex <= the index of the current playlist, 0-based.
-* trackindex <= the index of the current track on the playlist, 1-based.
-* pos_sec <= the current position on the track, in seconds.
-* codec <= the codec used on the currently playing track.
-* bitrate <= the current bitrate in kbps, varies with VBR.
-* albumartist <= the artist of the album. May or may not be the same as artist.
-* album <= the current album title.
-* date <= the album's / track's release date.
-* genre <= the song's genre.
-* track <= the track number.
-* title <= the track's title.
-* position <= the current position on the track, in m:ss format.
-The following tags are only available if using the recommended settings:
-* artist <= the artist of the current track.
-* totaltracks <= the number of tracks in the album.
-* len <= the track's duration, in m:ss format.
-* version <= the player's version (e.g. \"v0.9.6.8\").
-The following tag is set by foo_spam itself:
-* comment <= all arguments that the user gives to /aud in a single string.
+List of available tags (refer to foobar2000's documentation for their meanings):
+ - %isplaying%, %ispaused%, %_foobar2000_version%
+ - %playback_time%, %playback_time_remaining%, %length% (plus the _seconds variants)
+ - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
+ - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
+ - %codec%, %bitrate%, %codec_profile%
+The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
+EOF
+;
+	return $list;
+}
 
+sub get_funclist_string {
+	my $list = <<'EOF'
+List of available functions (refer to foobar2000's documentation for their meanings):
+ - $if(X,Y,Z), $if2(X,Y), $ifgreater(A,B,C,D), $iflonger(A,B,C,D), $ifequal(A,B,C,D)
+ - $and(X,Y), $or(X,Y), $xor(X,Y), $not(X)
+ - $strcmp(X,Y), $stricmp(X,Y), $len(X), $num(X,Y)
+ - $caps(X), $caps2(X)
+ - $trim(A), $pad(X,Y), $pad_right(X,Y), $pad(X,Y,Z), $pad_right(X,Y,Z), $left(X,Y), $cut(X,Y), $padcut(X,Y), $padcut_right(X,Y), $right(X,Y)
+ - $insert(A,B,N), $replace(A,B,C), $repeat(X,N)
+ - $abbr(X), $abbr(X,Y)
+ - $add(X,Y), $sub(X,Y), $mul(X,Y), $div(X,Y), $mod(X,Y), $min(X,Y), $max(X,Y)
+ - $put(name,text), $puts(name,text), $get(name)
 EOF
 ;
 	return $list;
@@ -602,6 +619,10 @@ if (HAVE_IRSSI) {
 	*print_foo_tags = sub {
 		Irssi::print(get_taglist_string());
 	};
+	
+	*print_foo_funcs = sub {
+		Irssi::print(get_funclist_string());
+	};
 
 	Irssi::settings_add_str("foo_spam", "foo_format", $format);
 	$format = Irssi::settings_get_str("foo_format");
@@ -611,6 +632,7 @@ if (HAVE_IRSSI) {
 	Irssi::command_bind('foo_help', 'print_foo_help');
 	Irssi::command_bind('foo_format','print_foo_format_help');
 	Irssi::command_bind('foo_tags','print_foo_tags');
+	Irssi::command_bind('foo_funcs','print_foo_funcs');
 
 } elsif (HAVE_XCHAT) {
 	*print_now_playing = sub {
@@ -661,6 +683,11 @@ if (HAVE_IRSSI) {
 		Xchat::print(get_taglist_string());
 		return Xchat::EAT_ALL();
 	};
+	
+	*print_foo_funcs = sub {
+		Xchat::print(get_funclist_string());
+		return Xchat::EAT_ALL();
+	};
 
 	if (open($setting_file, "<", Xchat::get_info('xchatdir') . "/foo_spam.conf")) {
 		my $line = <$setting_file>;
@@ -675,6 +702,7 @@ if (HAVE_IRSSI) {
 	Xchat::hook_command("set_foo_format","set_foo_format", {help => "displays or changes the current format string"});
 	Xchat::hook_command("foo_format","print_foo_format_help", {help => "explains how to configure the format string"});
 	Xchat::hook_command("foo_tags","print_foo_tags", {help => "lists all available tags"});
+	Xchat::hook_command('foo_funcs','print_foo_funcs', {help => "lists all available functions"});
 } else {
 	$| = 1;
 	binmode (STDERR, ":encoding(utf-8)");
