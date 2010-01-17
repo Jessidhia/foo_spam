@@ -609,7 +609,9 @@ if (HAVE_IRSSI) {
 	};
 
 	*print_foo_format_help = sub {
-		Irssi::print(get_foo_format_help_string());
+		my $help = get_foo_format_help_string();
+		$help =~ s/%/%%/g;
+		Irssi::print($help);
 	};
 
 	*irc_print = sub {
@@ -617,7 +619,9 @@ if (HAVE_IRSSI) {
 	};
 
 	*print_foo_tags = sub {
-		Irssi::print(get_taglist_string());
+		my $help = get_foo_taglist_string();
+		$help =~ s/%/%%/g;
+		Irssi::print($help);
 	};
 	
 	*print_foo_funcs = sub {
