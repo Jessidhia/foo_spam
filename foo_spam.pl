@@ -595,7 +595,7 @@ EOF
 if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ($data, $server, $witem) = @_;
-		my $str = get_np_string($data);
+		my $str = get_np_string(decode("UTF-8", $data));
 		if (defined($str)) {
 			if ($witem && ($witem->{type} eq "CHANNEL" ||
 				$witem->{type} eq "QUERY")) {
@@ -637,7 +637,6 @@ if (HAVE_IRSSI) {
 	Irssi::command_bind('foo_format','print_foo_format_help');
 	Irssi::command_bind('foo_tags','print_foo_tags');
 	Irssi::command_bind('foo_funcs','print_foo_funcs');
-
 } elsif (HAVE_XCHAT) {
 	*print_now_playing = sub {
 		my $str = get_np_string($_[0][1] ? $_[1][1] : undef);
