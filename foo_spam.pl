@@ -1,4 +1,20 @@
 #! /usr/bin/env perl
+#
+# foo_spam - Prints the currently playing song from foobar2000.
+# 
+# Copyright (c) 2009-2010, Diogo Franco <diogomfranco@gmail.com>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use warnings;
 use strict;
@@ -9,10 +25,31 @@ use Net::Telnet;
 use File::Path;
 use Time::HiRes qw(usleep);
 
-BEGIN { *HAVE_XCHAT = Xchat->can('register') ? sub {1} : sub {0}; *HAVE_IRSSI = Irssi->can('command_bind') ? sub{1} : sub{0}; }
+BEGIN {
+	*HAVE_XCHAT = Xchat->can('register') ? sub {1} : sub {0};
+	*HAVE_IRSSI = Irssi->can('command_bind') ? sub{1} : sub{0};
+	*HAVE_WEECH = weechat->can('register') ? sub {1} : sub {0};
+}
 
-Xchat::register("foo_spam","0.6", "Prints the current playing song from foobar2000.", \&close_telnet) if (HAVE_XCHAT);
+my $ver = '0.6.1';
+my %info = (
+	author      => 'Kovensky',
+	contact     => '#shameimaru@irc.rizon.net',
+	url         => 'http://repo.or.cz/w/foo_spam.git',
+	name        => 'foo_spam',
+	description => 'Prints the currently playing song from foobar2000.',
+	license     => 'ISC'
+);
+
+if (HAVE_IRSSI) {
+	our $VERSION = $ver;
+	our %IRSSI = %info;
+}
+
+Xchat::register($info{name}, $ver, $info{description}, \&close_telnet) if HAVE_XCHAT;
+weechat::register($info{name}, $info{author}, $ver, $info{license}, $info{description}, 'close_telnet', 'UTF-8') if HAVE_WEECH;
 # ChangeLog:
+# 0.6.1 - Added weechat support.
 # 0.6   - Backwards incompatible version. Changes the format syntax, documents functions, implement some others.
 # 0.5.2 - Added discnumber and totaldiscs tags. Changed default format. Silences a warning when a function ends on ",)". Fixed two warnings in the $if family.
 # 0.5.1 - Fixed $if, $if2, $and, $or and $xor behavior on certain strings.
@@ -551,8 +588,11 @@ tags, use /foo_tags. To see the list of supported functions, use
 /foo_funcs.
 
 To change the format, you can use:
- * Irssi: /set foo_format <new format>
- * X-Chat: /set_foo_format <default or new format>
+ * Irssi: /set foo_format <new format> (use /set -default to reset)
+ * X-Chat: /set_foo_format <new format> (use /set_foo_format default to reset)
+ * WeeChat: /set foo_spam.settings.format <new format> (use /unset to reset)
+You can also edit the script and change the value of \$default_format, in case
+you use an unsupported client.
 
 Default: $default_format
 
@@ -700,12 +740,73 @@ if (HAVE_IRSSI) {
 	}
 
 	Xchat::hook_command("np","print_now_playing", {help => "alias to /aud"});
-	Xchat::hook_command("aud","print_now_playing", {help => "prints your current playing song on foobar2000 on an ACTION"});
+	Xchat::hook_command("aud","print_now_playing", {help => "prints your currently playing song on foobar2000 on an ACTION"});
 	Xchat::hook_command("foo_help","print_foo_help", {help => "explains how to set up foobar2000"});
 	Xchat::hook_command("set_foo_format","set_foo_format", {help => "displays or changes the current format string"});
 	Xchat::hook_command("foo_format","print_foo_format_help", {help => "explains how to configure the format string"});
 	Xchat::hook_command("foo_tags","print_foo_tags", {help => "lists all available tags"});
 	Xchat::hook_command('foo_funcs','print_foo_funcs', {help => "lists all available functions"});
+} elsif (HAVE_WEECH) {
+	*print_now_playing = sub {
+		my ($data, $buffer, @args) = @_;
+		my $str = get_np_string($args[0] ? decode("UTF-8", join(' ', @args)) : undef);
+		if (defined($str)) {
+			weechat::command($buffer, encode_utf8("/me $str"));
+		}
+		return weechat::WEECHAT_RC_OK_EAT();
+	};
+
+	*irc_print = sub {
+		weechat::print('', shift);
+	};
+
+	*print_foo_help = sub {
+		irc_print(get_help_string());
+		return weechat::WEECHAT_RC_OK_EAT();
+	};
+
+	our $config;
+
+	*set_foo_format = sub {
+		my ($data, $opt) = @_;
+		$format = weechat::config_string($opt);
+		weechat::config_write($config);
+		return weechat::WEECHAT_RC_OK_EAT();
+	};
+
+	*print_foo_format_help = sub {
+		irc_print(get_foo_format_help_string());
+		return weechat::WEECHAT_RC_OK_EAT();
+	};
+
+	*print_foo_tags = sub {
+		irc_print(get_taglist_string());
+		return weechat::WEECHAT_RC_OK_EAT();
+	};
+	
+	*print_foo_funcs = sub {
+		irc_print(get_funclist_string());
+		return Xchat::WEECHAT_RC_OK_EAT();
+	};
+
+	$config = weechat::config_new('foo_spam', '', '');
+
+	unless (weechat::config_read($config) and
+			($format = weechat::config_string(weechat::config_get('foo_spam.settings.format')))) {
+		my $sect = weechat::config_new_section($config, 'settings', 0, 0,
+			'', '', '', '', '', '', '', '', '', '');
+		my $opt  = weechat::config_new_option($config, $sect, 'format', 'string',
+			'The format used for /aud. See /foo_format for help.', '', '', '',
+			$default_format, $default_format, 0, '', '', 'set_foo_format', '', '', '');
+		weechat::config_write($config);
+	}
+
+	weechat::hook_command('np', 'alias to /aud', '', '', '%(nicks)', 'print_now_playing', '');
+	weechat::hook_command('aud', 'prints your currently playing song on foobar2000 on an ACTION', '', '', '%(nicks)', 'print_now_playing', '');
+	weechat::hook_command('foo_help', 'explains how to set up foobar2000', '', '', '', 'print_foo_help', '');
+	weechat::hook_command('foo_format', 'explains how to configure the format string', '', '', '', 'print_foo_format_help', '');
+	weechat::hook_command('foo_tags', 'lists all available tags', '', '', '', 'print_foo_tags', '');
+	weechat::hook_command('foo_funcs', 'lists all available functions', '', '', '', 'print_foo_funcs', '');
 } else {
 	$| = 1;
 	binmode (STDERR, ":encoding(utf-8)");
@@ -718,7 +819,7 @@ if (HAVE_IRSSI) {
 	print "$np\n" if $np;
 }
 
-if (HAVE_XCHAT or HAVE_IRSSI) {
+if (HAVE_XCHAT or HAVE_IRSSI or HAVE_WEECH) {
 	irc_print(get_intro_string());
 }
 
