@@ -521,7 +521,7 @@ sub parse_subfunction {
 		$arg1 =~ s/\b(\S)/@{[uc($1)]}/g;
 		return $arg1;
 	} elsif ($func eq "fix_eol") {
-		my ($meta, $repl) = @_;
+		my ($meta, $repl) = @args;
 		$repl = " (...)" unless $repl;
 		return undef unless defined($meta);
 		$meta =~ s/\010?\013.*//;
