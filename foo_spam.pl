@@ -435,6 +435,11 @@ sub parse_subfunction {
 		} else {
 			return $iffalse;
 		}
+	} elsif ($func eq "if3") {
+		foreach (@args) {
+			return $_ if $_;
+		}
+		return undef;
 	} elsif ($func eq "ifgreater" or $func eq "ifequal" or $func eq "iflonger") {
 		my ($arg1, $arg2, $iftrue, $iffalse) = @args;
 
