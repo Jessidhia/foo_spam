@@ -440,6 +440,28 @@ sub parse_subfunction {
 			return $_ if $_;
 		}
 		return undef;
+	} elsif ($func eq "greater") {
+		my ($arg1, $arg2) = @args;
+		return undef unless (defined($arg1) or defined($arg2));
+		return $arg1 unless defined $arg2;
+		return $arg2 unless defined $arg1;
+		return $arg1 if $arg1 >= $arg2;
+		return $arg2;
+	} elsif ($func eq "longer") {
+		my ($arg1, $arg2) = @args;
+		return undef unless (defined($arg1) or defined($arg2));
+		return $arg1 unless defined $arg2;
+		return $arg2 unless defined $arg1;
+		return $arg1 if length($arg1) >= length($arg2);
+		return $arg2;
+	} elsif ($func eq "longest") {
+		return undef unless scalar(@args);
+		my $longest = $_[0];
+		foreach (@args) {
+			next unless defined;
+			$longest = $_ if length($_) > length($longest);
+		}
+		return $longest;
 	} elsif ($func eq "ifgreater" or $func eq "ifequal" or $func eq "iflonger") {
 		my ($arg1, $arg2, $iftrue, $iffalse) = @args;
 
