@@ -520,6 +520,12 @@ sub parse_subfunction {
 		return undef unless defined $arg1;
 		$arg1 =~ s/\b(\S)/@{[uc($1)]}/g;
 		return $arg1;
+	} elsif ($func eq "fix_eol") {
+		my ($meta, $repl) = @_;
+		$repl = " (...)" unless $repl;
+		return undef unless defined($meta);
+		$meta =~ s/\010?\013.*//;
+		return $meta;
 	}
 
 	warn "Unknown or unimplemented function: $function";
