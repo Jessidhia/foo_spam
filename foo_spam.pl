@@ -542,6 +542,11 @@ sub parse_subfunction {
 		return undef unless defined $arg1;
 		$arg1 =~ s/\b(\S)/@{[uc($1)]}/g;
 		return $arg1;
+	} elsif ($func eq "lower" or $func eq "upper") {
+		my ($arg1) = @args;
+		return undef unless defined $arg1;
+		return lc($arg1) if $func eq "lower";
+		return uc($arg1);
 	} elsif ($func eq "fix_eol") {
 		my ($meta, $repl) = @args;
 		$repl = " (...)" unless $repl;
