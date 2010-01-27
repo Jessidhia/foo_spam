@@ -656,10 +656,11 @@ EOF
 sub get_funclist_string {
 	my $list = <<'EOF'
 List of available functions (refer to foobar2000's documentation for their meanings):
- - $if(X,Y,Z), $if2(X,Y), $ifgreater(A,B,C,D), $iflonger(A,B,C,D), $ifequal(A,B,C,D)
+ - $if(X,Y,Z), $if2(X,Y), $if3(X,Y,Z,...), $ifgreater(A,B,C,D), $iflonger(A,B,C,D), $ifequal(A,B,C,D)
  - $and(X,Y), $or(X,Y), $xor(X,Y), $not(X)
  - $strcmp(X,Y), $stricmp(X,Y), $len(X), $num(X,Y)
- - $caps(X), $caps2(X)
+ - $greater(X,Y), $longer(X,Y), $longest(A,B,C,...)
+ - $caps(X), $caps2(X), $lower(X), $upper(X)
  - $trim(A), $pad(X,Y), $pad_right(X,Y), $pad(X,Y,Z), $pad_right(X,Y,Z), $left(X,Y), $cut(X,Y), $padcut(X,Y), $padcut_right(X,Y), $right(X,Y)
  - $insert(A,B,N), $replace(A,B,C), $repeat(X,N)
  - $abbr(X), $abbr(X,Y)
