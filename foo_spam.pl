@@ -623,7 +623,7 @@ tags, use /foo_tags. To see the list of supported functions, use
 To change the format, you can use:
  * Irssi: /set foo_format <new format> (use /set -default to reset)
  * X-Chat: /set_foo_format <new format> (use /set_foo_format default to reset)
- * WeeChat: /set foo_spam.settings.format <new format> (use /unset to reset)
+ * WeeChat: /set plugins.var.foo_spam.format <new format> (use /unset to reset)
 You can also edit the script and change the value of \$default_format, in case
 you use an unsupported client.
 
@@ -782,6 +782,7 @@ if (HAVE_IRSSI) {
 } elsif (HAVE_WEECH) {
 	*print_now_playing = sub {
 		my ($data, $buffer, @args) = @_;
+		$format = weechat::config_get_plugin("format");
 		my $str = get_np_string($args[0] ? decode("UTF-8", join(' ', @args)) : undef);
 		if (defined($str)) {
 			weechat::command($buffer, encode_utf8("/me $str"));
@@ -795,15 +796,6 @@ if (HAVE_IRSSI) {
 
 	*print_foo_help = sub {
 		irc_print(get_help_string());
-		return weechat::WEECHAT_RC_OK_EAT();
-	};
-
-	our $config;
-
-	*set_foo_format = sub {
-		my ($data, $opt) = @_;
-		$format = weechat::config_string($opt);
-		weechat::config_write($config);
 		return weechat::WEECHAT_RC_OK_EAT();
 	};
 
@@ -822,16 +814,8 @@ if (HAVE_IRSSI) {
 		return Xchat::WEECHAT_RC_OK_EAT();
 	};
 
-	$config = weechat::config_new('foo_spam', '', '');
-
-	unless (weechat::config_read($config) and
-			($format = weechat::config_string(weechat::config_get('foo_spam.settings.format')))) {
-		my $sect = weechat::config_new_section($config, 'settings', 0, 0,
-			'', '', '', '', '', '', '', '', '', '');
-		my $opt  = weechat::config_new_option($config, $sect, 'format', 'string',
-			'The format used for /aud. See /foo_format for help.', '', '', '',
-			$default_format, $default_format, 0, '', '', 'set_foo_format', '', '', '');
-		weechat::config_write($config);
+	unless (weechat::config_is_set_plugin("format")) {
+		weechat::config_set_plugin("format", $default_format);
 	}
 
 	weechat::hook_command('np', 'alias to /aud', '', '', '%(nicks)', 'print_now_playing', '');
