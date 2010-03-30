@@ -1,0 +1,5 @@
+Prints the currently playing song on foobar2000.
+
+Compatible with X-Chat Perl, Irssi and WeeChat Perl. Works on all common operating systems, connects to foobar2000 through telnet. If SSH tunneled (port 3333), works via remote hosts too.
+
+It requires a special plugin ( http://www.hydrogenaudio.org/forums/index.php?showtopic=38114 ) and configuration on foobar2000; use the /foo_help command to get instructions.
