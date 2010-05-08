@@ -32,7 +32,7 @@ BEGIN {
 	*HAVE_WEECH = weechat->can('register')   ? sub {1} : sub {0};
 }
 
-my $ver  = '0.6.1';
+my $ver  = '0.7';
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -54,6 +54,7 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
     if HAVE_WEECH;
 
 # ChangeLog:
+# 0.7   - Added Banshee support. Parses command line options using Getopt::Long.
 # 0.6.1 - Added weechat support.
 # 0.6   - Backwards incompatible version. Changes the format syntax, documents functions, implement some others.
 # 0.5.2 - Added discnumber and totaldiscs tags. Changed default format. Silences a warning when a function ends on ",)". Fixed two warnings in the $if family.
@@ -70,9 +71,6 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
 
 # Known Bugs:
 # Doesn't support tags that are equal to "?" (foo_controlserver limitation).
-
-# TODO:
-# Replace the current format syntax by foobar2000's title format
 
 our $player         = "foobar2000";
 our $telnet_open    = 0;
@@ -167,7 +165,7 @@ sub get_track_info_fb2k {
 		genre                 => $fields[9],
 		tracknumber           => $fields[10],
 	    title                 => $fields[11] };
-	if ( $fields[19] ) {    #
+	if ( $fields[19] ) {
 		$info->{'artist'}        = $fields[12];
 		$info->{'totaltracks'}   = $fields[13];
 		$info->{'playback_time'} = $fields[14];
@@ -789,6 +787,7 @@ sub get_intro_string {
 \002foo_spam - prints the currently playing track from foobar2000 or Banshee
 \002Created by Kovensky \(irc.rizon.net #shameimaru\)
 This script requires Banshee or a properly configured foobar2000.
+Note that the script does not work remotely for Banshee.
 Run /foo_help for help setting foobar2000 up.
 \002-------------------------------------------------------------------------
 Usage:
@@ -1127,7 +1126,7 @@ if (HAVE_IRSSI) {
 	            'format=s' => \$format,
 	            'help' => sub {
 		            $_ = <<EOF;
-foo_spam - prints the currently playing track from foobar2000
+foo_spam - prints the currently playing track from foobar2000 or Banshee
 Supports command line, X-Chat, irssi and weechat.
 Usage: foo_spam.pl [--player={foobar2000,banshee}] [--format='formatting string'] [--comment='value of \%comment%']
 EOF
