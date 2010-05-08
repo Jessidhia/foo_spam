@@ -20,6 +20,7 @@ use warnings;
 use strict;
 use utf8;
 use Encode;
+use Getopt::Long;
 
 use Net::Telnet;
 use File::Path;
@@ -929,6 +930,22 @@ if (HAVE_IRSSI) {
 	$| = 1;
 	binmode( STDERR, ":encoding(utf-8)" );
 	binmode( STDOUT, ":encoding(utf-8)" );
+	
+	my $comment = undef;
+
+	GetOptions(
+	            'comment=s' => \$comment,
+	            'format=s' => \$format,
+	            'help' => sub {
+		            $_ = <<EOF;
+foo_spam - prints the currently playing track from foobar2000
+Supports command line, X-Chat, irssi and weechat.
+Usage: foo_spam.pl [--format='formatting string'] [--comment='value of \%comment%']
+EOF
+		            print $_;
+		            exit;
+	            });
+
 	*irc_print = sub {
 		print( STDERR "@_\n" ) if @_;
 	};
