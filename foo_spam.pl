@@ -785,18 +785,24 @@ EOF
 
 sub get_intro_string {
 	my $intro = <<EOF
-\002-----------------------------------------------------------------
-\002foo_spam - prints the currently playing track from foobar2000
+\002-------------------------------------------------------------------------
+\002foo_spam - prints the currently playing track from foobar2000 or Banshee
 \002Created by Kovensky \(irc.rizon.net #shameimaru\)
-This script requires a properly configured foobar2000.
+This script requires Banshee or a properly configured foobar2000.
 Run /foo_help for help setting foobar2000 up.
-\002-----------------------------------------------------------------
+\002-------------------------------------------------------------------------
 Usage:
 /aud        - prints the playing song as an ACTION
 /np         - alias to /aud
 /foo_help   - explains how to set up foobar2000
 /foo_format - explains how to set up the output format
-\002-----------------------------------------------------------------
+\002-------------------------------------------------------------------------
+\002To choose which player will be used (default is foobar2000), do:
+ * Irssi: /set foo_player <player>
+ * X-Chat: /set_foo_player <player>
+ * WeeChat: /set plugins.var.foo_spam.player <player>
+Only foobar2000 and banshee are accepted as a player.
+\002-------------------------------------------------------------------------
 
 EOF
 	    ;
@@ -812,6 +818,9 @@ foo_spam now uses the same syntax as foobar2000 (title format), however only
 a subset of it is currently implemented. To see the list of supported
 tags, use /foo_tags. To see the list of supported functions, use
 /foo_funcs.
+
+Not all tags available on foobar2000 are available on banshee, but almost all
+of them are. Some tags return different values, like %codec_profile%.
 
 To change the format, you can use:
  * Irssi: /set foo_format <new format> (use /set -default to reset)
@@ -830,7 +839,7 @@ EOF
 sub get_taglist_string {
 	my $list = <<EOF
 List of available tags (refer to foobar2000's documentation for their meanings):
- - %isplaying%, %ispaused%, %_foobar2000_version%
+ - %isplaying%, %ispaused%, %player%, %version%, %_foobar2000_version%
  - %playback_time%, %playback_time_remaining%, %length% (plus the _seconds variants)
  - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
  - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
