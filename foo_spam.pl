@@ -21,8 +21,8 @@ use strict;
 use utf8;
 use Encode;
 use Getopt::Long;
+use feature "switch";
 
-use Net::Telnet;
 use File::Path;
 use Time::HiRes qw(usleep);
 
@@ -74,10 +74,11 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
 # TODO:
 # Replace the current format syntax by foobar2000's title format
 
+our $player         = "foobar2000";
 our $telnet_open    = 0;
 our $telnet         = undef;
 our $default_format = <<'EOF';
-$left(%_foobar2000_version%,10) ($replace(%_foobar2000_version%,foobar2000 ,)):
+%player%[ (%version%)]:
  [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
  [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %codec%[ %codec_profile%]][ <-- %comment%]
 EOF
@@ -85,9 +86,10 @@ $default_format =~ s/\R//g;
 our $format = $default_format;
 our %heap;
 
-our $setting_file = undef;    # Only used by Xchat
+our $settings_file = undef;    # Only used by Xchat
 
 sub open_telnet {
+	eval { require Net::Telnet; 1 } or return undef;
 	$telnet
 	    = new Net::Telnet( Port => 3333, Timeout => 10, Errmode => 'return' )
 	    if not defined($telnet);
@@ -100,6 +102,8 @@ sub open_telnet {
 	return $telnet_open;
 }
 
+our ($bus, $bplayer);
+
 sub close_telnet {
 	if ($telnet_open) {
 		$telnet_open = 0;
@@ -108,7 +112,7 @@ sub close_telnet {
 	}
 }
 
-sub get_track_info {
+sub get_track_info_fb2k {
 	return undef unless open_telnet();
 
 	my $line = undef;
@@ -177,6 +181,9 @@ sub get_track_info {
 		$info->{'totaldiscs'} = $fields[19];
 	}
 
+	$info->{player} = "foobar2000";
+	$info->{version} = substr $info->{'_foobar2000_version'}, 11;
+
 	$info->{'isplaying'} = 1;
 	$info->{'ispaused'}  = 0;
 	if ( $info->{'state'} eq "113" ) {
@@ -226,6 +233,118 @@ sub get_track_info {
 	}
 
 	return $info;
+}
+
+sub get_track_info_banshee {
+	eval { require Net::DBus; 1 } or return undef;
+
+	if(!$bplayer) {
+		$bus = Net::DBus->session or return undef;
+		my $banshee = $bus->get_service("org.bansheeproject.Banshee") or return undef;
+		$bplayer = $banshee->get_object("/org/bansheeproject/Banshee/PlayerEngine",
+		                                "org.bansheeproject.Banshee.PlayerEngine") or return undef;
+	}
+
+	my $btagsref = $bplayer->GetCurrentTrack or return undef;
+	my %btags = %$btagsref;
+
+	my %info;
+
+	foreach (keys %btags) {
+		given ($_) {
+			when ("album-artist") {
+				$info{'album artist'} = $btags{$_};
+			}
+			when ("track-number") {
+				$info{tracknumber} = $btags{$_};
+			}
+			when ("track-count") {
+				$info{totaltracks} = $btags{$_};
+			}
+			when ("disc-number") {
+				$info{discnumber} = $btags{$_};
+			}
+			when ("disc-count") {
+				$info{totaldiscs} = $btags{$_};
+			}
+			when ("name") {
+				$info{title} = $btags{$_};
+			}
+			when ("bit-rate") { # NOTE: does not update in real time
+				$info{bitrate} = $btags{$_};
+			}
+			when ("genre") {
+				$info{genre} = $btags{$_};
+			}
+			when ("album") {
+				$info{album} = $btags{$_};
+			}
+			when ("artist") {
+				$info{artist} = $btags{$_};
+			}
+			when ("year") { # NOTE: does not return string dates, only integer (known bug)
+				$info{date} = $btags{$_};
+			}
+			when ("mime-type") { # NOTE: not equivalent to foobar2000's, but close enough
+				$info{codec} = $btags{$_};
+			}
+			when ("bpm") { # banshee-only gimmick, since we can't get the actual codec profile :)
+				$info{codec_profile} = "$btags{$_} BPM" if $btags{$_} > 0;
+			}
+			when ("score") { # TODO: add the same to foobar2000
+				$info{rating} = $btags{$_};
+			}
+		}
+	}
+	
+	$info{state} = $bplayer->GetCurrentState;
+
+	$info{player} = "Banshee";
+
+	my $posmili = $bplayer->GetPosition;
+	my $lenmili = $bplayer->GetLength;
+
+	$info{playback_time_seconds} = $posmili / 1000;
+	$info{length_seconds} = $lenmili / 1000;
+	$info{'playback_time_remaining_seconds'} = ($lenmili - $posmili) / 1000;
+
+	# NOTE: there's no "stopped" state in banshee
+	$info{isplaying} = 1;
+	$info{ispaused} = 0;
+	if ( $info{state} eq "paused" ) {
+		$info{ispaused} = 0;
+	}
+	delete $info{state};
+
+	$info{'album artist'} = $info{artist} unless exists $info{'album artist'};
+	$info{'track artist'} = $info{artist} if ($info{artist} &&
+	                                        $info{'album artist'} &&
+	                                        $info{'album artist'} ne $info{artist});
+
+	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
+		my $t = $info{"${_}_seconds"};
+
+		my @u = ( 0, 0 );
+		for ( my $i = 1; $i >= 0; $i-- ) {
+			$u[$i] = $t % 60;
+			$t = int( $t/60 );
+		}
+		$info{$_}
+		    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
+	}
+
+	return \%info;
+}
+
+sub get_track_info {
+	given($player) {
+		when("foobar2000") {
+			return get_track_info_fb2k(@_);
+		}
+		when("banshee") {
+			return get_track_info_banshee(@_);
+		}
+	}
 }
 
 sub parse_format {
@@ -779,7 +898,9 @@ if (HAVE_IRSSI) {
 	};
 
 	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
+	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
 	$format = Irssi::settings_get_str("foo_format");
+	$player = Irssi::settings_get_str("foo_player");
 
 	Irssi::command_bind( 'aud',        'print_now_playing' );
 	Irssi::command_bind( 'np',         'print_now_playing' );
@@ -933,14 +1054,26 @@ if (HAVE_IRSSI) {
 	
 	my $comment = undef;
 
-	GetOptions(
+	GetOptions( 'player=s' => sub {
+		            given($_[1]) {
+			            when("foobar2000") {
+				            $player = "foobar2000";
+			            }
+			            when("banshee") {
+				            $player = "banshee";
+			            }
+			            default {
+				            die "Player must be 'foobar2000' or 'banshee'.";
+			            }
+		            }
+	            },
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
 	            'help' => sub {
 		            $_ = <<EOF;
 foo_spam - prints the currently playing track from foobar2000
 Supports command line, X-Chat, irssi and weechat.
-Usage: foo_spam.pl [--format='formatting string'] [--comment='value of \%comment%']
+Usage: foo_spam.pl [--player={foobar2000,banshee}] [--format='formatting string'] [--comment='value of \%comment%']
 EOF
 		            print $_;
 		            exit;
