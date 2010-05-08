@@ -928,7 +928,7 @@ if (HAVE_IRSSI) {
 
 	*set_foo_format = sub {
 		if ( defined( $_[0][1] ) ) {
-			open( $setting_file, ">",
+			open( $settings_file, ">",
 				Xchat::get_info('xchatdir') . "/foo_spam.conf" );
 			if ( $_[0][1] eq "default" ) {
 				$format = $default_format;
@@ -936,9 +936,10 @@ if (HAVE_IRSSI) {
 				$format = $_[1][1];
 			}
 			Xchat::print("Changed format to $format\n");
-			if ( defined($setting_file) ) {
-				print $setting_file $format;
-				close($setting_file);
+			if ( defined($settings_file) ) {
+				print $settings_file "player=$player\n";
+				print $settings_file "format=$format\n";
+				close($settings_file);
 			} else {
 				Xchat::print("Failed to save settings! Error: $!");
 			}
@@ -948,6 +949,38 @@ if (HAVE_IRSSI) {
 		return Xchat::EAT_ALL();
 	};
 	if ( defined(*set_foo_format) ) { }    # Silence a warning
+	
+	*set_foo_player = sub {
+		if ( defined( $_[0][1] ) ) {
+			open( $settings_file, ">",
+				Xchat::get_info('xchatdir') . "/foo_spam.conf" );
+			my $ok = 1;
+			given ($_[0][1]) {
+				when ("foobar2000") {
+					$player = "foobar2000";
+				}
+				when ("banshee") {
+					$player = "banshee";
+				}
+				default {
+					warn "The player must be foobar2000 or banshee.";
+					$ok = 0;
+				}
+			}
+			Xchat::print("Changed player to $player\n") if $ok;
+			if ( defined($settings_file) ) {
+				print $settings_file "player=$player\n";
+				print $settings_file "format=$format\n";
+				close($settings_file);
+			} else {
+				Xchat::print("Failed to save settings! Error: $!");
+			}
+		} else {
+			Xchat::print("Current player: $player\n");
+		}
+		return Xchat::EAT_ALL();
+	};
+	if ( defined(*set_foo_player) ) { }    # Silence a warning
 
 	*print_foo_format_help = sub {
 		Xchat::print( get_foo_format_help_string() );
@@ -964,15 +997,25 @@ if (HAVE_IRSSI) {
 		return Xchat::EAT_ALL();
 	};
 
-    if (open(
-			$setting_file, "<",
+    if ( open (
+			$settings_file, "<",
 			Xchat::get_info('xchatdir') . "/foo_spam.conf"
-		)
-	    ) {
-		my $line = <$setting_file>;
-		chomp $line;
-		$format = $line if ( defined($line) and $line ne "" );
-		close($setting_file);
+		) ) {
+	    foreach (<$settings_file>) {
+		    chomp;
+		    given ($_) {
+			    when (/^format=(.*)/) {
+				    $format = $1;
+			    }
+			    when (/^player=(.*)/) {
+				    $player = $1;
+			    }
+			    default {
+				    $format = $_ if $_;
+			    }
+		    }
+	    }
+		close($settings_file);
 	}
 
 	Xchat::hook_command( "np", "print_now_playing",
@@ -981,7 +1024,7 @@ if (HAVE_IRSSI) {
 		"aud",
 		"print_now_playing", {
 			help =>
-			    "prints your currently playing song on foobar2000 on an ACTION"
+			    "prints your currently playing song on foobar2000 or Banshee on an ACTION"
 	    } );
 	Xchat::hook_command( "foo_help", "print_foo_help",
 		{ help => "explains how to set up foobar2000" } );
