@@ -1040,6 +1040,7 @@ if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $buffer, @args ) = @_;
 		$format = weechat::config_get_plugin("format");
+		$player = weechat::config_get_plugin("player");
 		my $str = get_np_string(
 			$args[0] ? decode( "UTF-8", join( ' ', @args ) ) : undef );
 		if ( defined($str) ) {
@@ -1075,11 +1076,14 @@ if (HAVE_IRSSI) {
 	unless ( weechat::config_is_set_plugin("format") ) {
 		weechat::config_set_plugin( "format", $default_format );
 	}
+	unless ( weechat::config_is_set_plugin("player") ) {
+		weechat::config_set_plugin( "player", $default_format );
+	}
 
 	weechat::hook_command( 'np', 'alias to /aud',
 		'', '', '%(nicks)', 'print_now_playing', '' );
 	weechat::hook_command( 'aud',
-		'prints your currently playing song on foobar2000 on an ACTION',
+		'prints your currently playing song on foobar2000 or Banshee on an ACTION',
 		'', '', '%(nicks)', 'print_now_playing', '' );
 	weechat::hook_command( 'foo_help', 'explains how to set up foobar2000',
 		'', '', '', 'print_foo_help', '' );
