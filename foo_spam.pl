@@ -1038,6 +1038,8 @@ if (HAVE_IRSSI) {
 		{ help => "explains how to set up foobar2000" } );
 	Xchat::hook_command( "set_foo_format", "set_foo_format",
 		{ help => "displays or changes the current format string" } );
+	Xchat::hook_command( "set_foo_player", "set_foo_player",
+		{ help => "displays or changes the used player" } );
 	Xchat::hook_command( "foo_format", "print_foo_format_help",
 		{ help => "explains how to configure the format string" } );
 	Xchat::hook_command( "foo_tags", "print_foo_tags",
