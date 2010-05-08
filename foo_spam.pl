@@ -319,6 +319,10 @@ sub get_track_info_banshee {
 	                                        $info{'album artist'} &&
 	                                        $info{'album artist'} ne $info{artist});
 
+	if (!$info{totaltracks} || $info{totaltracks} >= 10) {
+		$info{tracknumber} = sprintf("%02d", $info{tracknumber});
+	}
+
 	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
 		my $t = $info{"${_}_seconds"};
 
@@ -329,6 +333,10 @@ sub get_track_info_banshee {
 		}
 		$info{$_}
 		    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
+	}
+
+	for (keys %info) {
+		$info{$_} = decode("UTF-8", $info{$_});
 	}
 
 	return \%info;
