@@ -286,8 +286,8 @@ sub get_track_info_banshee {
 			when ("mime-type") { # NOTE: not equivalent to foobar2000's, but close enough
 				$info{codec} = $btags{$_};
 			}
-			when ("bpm") { # banshee-only gimmick, since we can't get the actual codec profile :)
-				$info{codec_profile} = "$btags{$_} BPM" if $btags{$_} > 0;
+			when ("bpm") {
+				$info{bpm} = $btags{$_} if $btags{$_};
 			}
 			when ("score") { # TODO: add the same to foobar2000
 				$info{rating} = $btags{$_};
