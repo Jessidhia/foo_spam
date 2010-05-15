@@ -38,7 +38,7 @@ my %info = (
 	contact     => '#shameimaru@irc.rizon.net',
 	url         => 'http://repo.or.cz/w/foo_spam.git',
 	name        => 'foo_spam',
-	description => 'Prints the currently playing song from foobar2000.',
+	description => 'Prints the currently playing song from foobar2000, Banshee or an MPRIS compliant player',
 	license     => 'ISC'
 );
 
@@ -54,6 +54,7 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
     if HAVE_WEECH;
 
 # ChangeLog:
+# 0.8   - Added MPRIS support, patch by Kulag.
 # 0.7   - Added Banshee support. Parses command line options using Getopt::Long.
 # 0.6.1 - Added weechat support.
 # 0.6   - Backwards incompatible version. Changes the format syntax, documents functions, implement some others.
@@ -71,6 +72,7 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
 
 # Known Bugs:
 # Doesn't support tags that are equal to "?" (foo_controlserver limitation).
+# MPRIS (or amarok) is dumb and doesn't export album artist information.
 
 our $player         = "foobar2000";
 our $telnet_open    = 0;
@@ -416,7 +418,7 @@ sub get_track_info {
 		when("banshee") {
 			return get_track_info_banshee(@_);
 		}
-		when('amarok') {
+		default {
 			return get_track_info_mpris(@_);
 		}
 	}
@@ -830,14 +832,6 @@ sub get_np_string {
 }
 
 sub get_help_string {
-	my $fields;
-	if (HAVE_IRSSI) {
-		$fields
-		    = '%%codec%%|||%%bitrate%%|||%%album artist%%|||%%album%%|||%%date%%|||%%genre%%|||%%tracknumber%%|||%%title%%|||%%artist%%|||%%totaltracks%%|||%%playback_time%%|||%%length%%|||%%_foobar2000_version%%|||%%codec_profile%%|||%%discnumber%%|||%%totaldiscs%%';
-	} else {
-		$fields
-		    = '%codec%|||%bitrate%|||%album artist%|||%album%|||%date%|||%genre%|||%tracknumber%|||%title%|||%artist%|||%totaltracks%|||%playback_time%|||%length%|||%_foobar2000_version%|||%codec_profile%|||%discnumber%|||%totaldiscs%';
-	}
 	my $help = <<EOF
 Required Plugin: foo_controlserver
 URL: http://www.hydrogenaudio.org/forums/index.php?showtopic=38114
@@ -847,7 +841,7 @@ Required settings: Control Server tab:
 * Base delimiter: |||
 Recommended setting:
 * Number of Clients: Some big number like 700
-* Fields: $fields
+* Fields: %codec%|||%bitrate%|||%album artist%|||%album%|||%date%|||%genre%|||%tracknumber%|||%title%|||%artist%|||%totaltracks%|||%playback_time%|||%length%|||%_foobar2000_version%|||%codec_profile%|||%discnumber%|||%totaldiscs%
 
 NOTE: the script only works with either the default or this custom Fields line.
 
@@ -860,25 +854,25 @@ EOF
 
 sub get_intro_string {
 	my $intro = <<EOF
-\002-------------------------------------------------------------------------
-\002foo_spam - prints the currently playing track from foobar2000 or Banshee
+\002----------------------------------------------------------------------------------------------------
+\002foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 \002Created by Kovensky \(irc.rizon.net #shameimaru\)
 This script requires Banshee or a properly configured foobar2000.
 Note that the script does not work remotely for Banshee.
 Run /foo_help for help setting foobar2000 up.
-\002-------------------------------------------------------------------------
+\002----------------------------------------------------------------------------------------------------
 Usage:
 /aud        - prints the playing song as an ACTION
 /np         - alias to /aud
 /foo_help   - explains how to set up foobar2000
 /foo_format - explains how to set up the output format
-\002-------------------------------------------------------------------------
+\002----------------------------------------------------------------------------------------------------
 \002To choose which player will be used (default is foobar2000), do:
  * Irssi: /set foo_player <player>
  * X-Chat: /set_foo_player <player>
  * WeeChat: /set plugins.var.foo_spam.player <player>
-Only foobar2000 and banshee are accepted as a player.
-\002-------------------------------------------------------------------------
+foobar2000 and banshee have specific implementations. Other players will use the MPRIS interface.
+\002----------------------------------------------------------------------------------------------------
 
 EOF
 	    ;
@@ -915,11 +909,12 @@ EOF
 sub get_taglist_string {
 	my $list = <<EOF
 List of available tags (refer to foobar2000's documentation for their meanings):
- - %isplaying%, %ispaused%, %player%, %version%, %_foobar2000_version%
+ - %isplaying%, %ispaused%, %_foobar2000_version%
  - %playback_time%, %playback_time_remaining%, %length% (plus the _seconds variants)
  - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
  - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
  - %codec%, %bitrate%, %codec_profile%
+foo_spam also sets %player% and %version%, which refer to the used player and its version.
 The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
 EOF
 	    ;
@@ -959,7 +954,9 @@ if (HAVE_IRSSI) {
 	};
 
 	*print_foo_help = sub {
-		Irssi::print( get_help_string() );
+		my $help = get_help_string();
+		$help =~ s/%/%%/g;
+		Irssi::print($help);
 	};
 
 	*print_foo_format_help = sub {
@@ -985,7 +982,7 @@ if (HAVE_IRSSI) {
 	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
 	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
 	$format = Irssi::settings_get_str("foo_format");
-	$player = Irssi::settings_get_str("foo_player");
+	$player = lc(Irssi::settings_get_str("foo_player"));
 
 	Irssi::command_bind( 'aud',        'print_now_playing' );
 	Irssi::command_bind( 'np',         'print_now_playing' );
@@ -1039,20 +1036,8 @@ if (HAVE_IRSSI) {
 		if ( defined( $_[0][1] ) ) {
 			open( $settings_file, ">",
 				Xchat::get_info('xchatdir') . "/foo_spam.conf" );
-			my $ok = 1;
-			given ($_[0][1]) {
-				when ("foobar2000") {
-					$player = "foobar2000";
-				}
-				when ("banshee") {
-					$player = "banshee";
-				}
-				default {
-					warn "The player must be foobar2000 or banshee.";
-					$ok = 0;
-				}
-			}
-			Xchat::print("Changed player to $player\n") if $ok;
+			$player = lc($_[0][1]);
+			Xchat::print("Changed player to $player\n");
 			if ( defined($settings_file) ) {
 				print $settings_file "player=$player\n";
 				print $settings_file "format=$format\n";
@@ -1093,7 +1078,7 @@ if (HAVE_IRSSI) {
 				    $format = $1;
 			    }
 			    when (/^player=(.*)/) {
-				    $player = $1;
+				    $player = lc($1);
 			    }
 			    default {
 				    $format = $_ if $_;
@@ -1109,7 +1094,7 @@ if (HAVE_IRSSI) {
 		"aud",
 		"print_now_playing", {
 			help =>
-			    "prints your currently playing song on foobar2000 or Banshee on an ACTION"
+			    "prints your currently playing song on your selected player on an ACTION"
 	    } );
 	Xchat::hook_command( "foo_help", "print_foo_help",
 		{ help => "explains how to set up foobar2000" } );
@@ -1127,7 +1112,7 @@ if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $buffer, @args ) = @_;
 		$format = weechat::config_get_plugin("format");
-		$player = weechat::config_get_plugin("player");
+		$player = lc(weechat::config_get_plugin("player"));
 		my $str = get_np_string(
 			$args[0] ? decode( "UTF-8", join( ' ', @args ) ) : undef );
 		if ( defined($str) ) {
@@ -1170,7 +1155,7 @@ if (HAVE_IRSSI) {
 	weechat::hook_command( 'np', 'alias to /aud',
 		'', '', '%(nicks)', 'print_now_playing', '' );
 	weechat::hook_command( 'aud',
-		'prints your currently playing song on foobar2000 or Banshee on an ACTION',
+		'prints your currently playing song on your selected player on an ACTION',
 		'', '', '%(nicks)', 'print_now_playing', '' );
 	weechat::hook_command( 'foo_help', 'explains how to set up foobar2000',
 		'', '', '', 'print_foo_help', '' );
@@ -1196,11 +1181,8 @@ if (HAVE_IRSSI) {
 			            when("banshee") {
 				            $player = "banshee";
 			            }
-			            when('amarok') {
-					    $player = 'amarok';
-				    }
 			            default {
-				            die "Player must be 'foobar2000' or 'banshee'.";
+				            $player = lc($_[1]);
 			            }
 		            }
 	            },
@@ -1208,7 +1190,7 @@ if (HAVE_IRSSI) {
 	            'format=s' => \$format,
 	            'help' => sub {
 		            $_ = <<EOF;
-foo_spam - prints the currently playing track from foobar2000 or Banshee
+foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 Supports command line, X-Chat, irssi and weechat.
 Usage: foo_spam.pl [--player={foobar2000,banshee}] [--format='formatting string'] [--comment='value of \%comment%']
 EOF
