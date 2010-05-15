@@ -16,23 +16,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use warnings;
-use strict;
-use utf8;
-use Encode;
-use Getopt::Long;
-use feature "switch";
-
-use File::Path;
-use Time::HiRes qw(usleep);
-
-BEGIN {
-	*HAVE_XCHAT = Xchat->can('register')     ? sub {1} : sub {0};
-	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
-	*HAVE_WEECH = weechat->can('register')   ? sub {1} : sub {0};
-}
-
-my $ver  = '0.7';
+my $VERSION  = '0.8';
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -41,17 +25,6 @@ my %info = (
 	description => 'Prints the currently playing song from foobar2000, Banshee or an MPRIS compliant player',
 	license     => 'ISC'
 );
-
-if (HAVE_IRSSI) {
-	our $VERSION = $ver;
-	our %IRSSI   = %info;
-}
-
-Xchat::register( $info{name}, $ver, $info{description}, \&close_telnet )
-    if HAVE_XCHAT;
-weechat::register( $info{name}, $info{author}, $ver, $info{license},
-	$info{description}, 'close_telnet', 'UTF-8' )
-    if HAVE_WEECH;
 
 # ChangeLog:
 # 0.8   - Added MPRIS support, patch by Kulag.
@@ -73,6 +46,32 @@ weechat::register( $info{name}, $info{author}, $ver, $info{license},
 # Known Bugs:
 # Doesn't support tags that are equal to "?" (foo_controlserver limitation).
 # MPRIS (or amarok) is dumb and doesn't export album artist information.
+
+use warnings;
+use strict;
+use utf8;
+use Encode;
+use Getopt::Long;
+use feature "switch";
+
+use File::Path;
+use Time::HiRes qw(usleep);
+
+BEGIN {
+	*HAVE_XCHAT = Xchat->can('register')     ? sub {1} : sub {0};
+	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
+	*HAVE_WEECH = weechat->can('register')   ? sub {1} : sub {0};
+}
+
+if (HAVE_IRSSI) {
+	our %IRSSI   = %info;
+}
+
+Xchat::register( $info{name}, $VERSION, $info{description}, \&close_telnet )
+    if HAVE_XCHAT;
+weechat::register( $info{name}, $info{author}, $VERSION, $info{license},
+	$info{description}, 'close_telnet', 'UTF-8' )
+    if HAVE_WEECH;
 
 our $player         = "foobar2000";
 our $telnet_open    = 0;
