@@ -110,6 +110,62 @@ sub close_telnet {
 	}
 }
 
+sub info_clean {
+	my $info = shift;
+
+	if ($info->{'isplaying'}) {
+		if ($info->{'ispaused'}) {
+			$info->{'state'} = "paused";
+		} else {
+			$info->{'state'} = "playing";
+		}
+	} else {
+		$info->{'state'} = "stopped";
+	}
+
+	if (defined $info->{'artist'}) {
+		$info->{'album artist'} = $info->{'artist'} unless defined $info->{'album artist'};
+		$info->{'track artist'} = $info->{'artist'} if $info->{'album artist'} ne $info->{'artist'};
+	}
+
+	if ( defined $info->{'length'} && !defined $info->{'length_seconds'} ) {
+		my ( $h, $m, $s ) = split( /\:/, $info->{'length'} );
+		if ( defined $s ) {
+			$info->{'length_seconds'} = $s + $m*60 + $h*3600;
+		} else {
+			$info->{'length_seconds'} = $m + $h*60;
+		}
+	}
+
+	if (!$info->{'totaltracks'} || $info->{'totaltracks'} >= 10) {
+		$info->{'tracknumber'} = sprintf("%02d", $info->{'tracknumber'});
+	}
+	
+	if ( $info->{'length_seconds'} and $info->{'playback_time_seconds'} ) {
+		$info->{'playback_time_remaining_seconds'}
+		    = $info->{'length_seconds'} - $info->{'playback_time_seconds'};
+	}
+
+	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
+		unless ( defined( $info->{$_} ) ) {
+			my $t = $info->{"${_}_seconds"};
+
+			my @u = ( 0, 0 );
+			for ( my $i = 1; $i >= 0; $i-- ) {
+				$u[$i] = $t % 60;
+				$t = int( $t/60 );
+			}
+			$info->{$_}
+			    = sprintf( '%s%02d:%02d', $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
+		}
+	}
+
+	for (keys %$info) {
+		$info->{$_} = decode("UTF-8", $info->{$_}) unless utf8::is_utf8($info->{$_});
+	}
+	return $info;
+}
+
 sub get_track_info_fb2k {
 	return undef unless open_telnet();
 
@@ -196,41 +252,7 @@ sub get_track_info_fb2k {
 		    if ( defined( $info->{$_} ) and $info->{$_} eq '?' );
 	}
 
-	$info->{'album artist'} = $info->{'artist'}
-	    unless defined( $info->{'album artist'} );
-	$info->{'track artist'} = $info->{'artist'}
-	    if ( defined( $info->{'artist'} )
-		and $info->{'album artist'} ne $info->{'artist'} );
-
-	if ( defined( $info->{'length'} ) ) {
-		my ( $h, $m, $s ) = split( /\:/, $info->{'length'} );
-		if ( defined $s ) {
-			$info->{'length_seconds'} = $s + $m*60 + $h*3600;
-		} else {
-			$info->{'length_seconds'} = $m + $h*60;
-		}
-	}
-
-	if ( $info->{'length_seconds'} and $info->{'playback_time_seconds'} ) {
-		$info->{'playback_time_remaining_seconds'}
-		    = $info->{'length_seconds'} - $info->{'playback_time_seconds'};
-	}
-
-	for ( ( 'playback_time', 'playback_time_remaining' ) ) {
-		unless ( defined( $info->{$_} ) ) {
-			my $t = $info->{"${_}_seconds"};
-
-			my @u = ( 0, 0 );
-			for ( my $i = 1; $i >= 0; $i-- ) {
-				$u[$i] = $t % 60;
-				$t = int( $t/60 );
-			}
-			$info->{$_}
-			    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
-		}
-	}
-
-	return $info;
+	return info_clean($info);
 }
 
 sub get_track_info_banshee {
@@ -295,51 +317,22 @@ sub get_track_info_banshee {
 		}
 	}
 	
-	$info{state} = $bplayer->GetCurrentState;
+	$info{'state'} = $bplayer->GetCurrentState;
 
-	$info{player} = "Banshee";
+	$info{'player'} = "Banshee";
 
 	my $posmili = $bplayer->GetPosition;
 	my $lenmili = $bplayer->GetLength;
 
-	$info{playback_time_seconds} = $posmili / 1000;
-	$info{length_seconds} = $lenmili / 1000;
+	$info{'playback_time_seconds'} = $posmili / 1000;
+	$info{'length_seconds'}        = $lenmili / 1000;
 	$info{'playback_time_remaining_seconds'} = ($lenmili - $posmili) / 1000;
 
 	# NOTE: there's no "stopped" state in banshee
 	$info{isplaying} = 1;
-	$info{ispaused} = 0;
-	if ( $info{state} eq "paused" ) {
-		$info{ispaused} = 0;
-	}
-	delete $info{state};
+	$info{ispaused} = $info{state} eq "paused" ? 1 : 0;
 
-	$info{'album artist'} = $info{artist} unless exists $info{'album artist'};
-	$info{'track artist'} = $info{artist} if ($info{artist} &&
-	                                        $info{'album artist'} &&
-	                                        $info{'album artist'} ne $info{artist});
-
-	if (!$info{totaltracks} || $info{totaltracks} >= 10) {
-		$info{tracknumber} = sprintf("%02d", $info{tracknumber});
-	}
-
-	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
-		my $t = $info{"${_}_seconds"};
-
-		my @u = ( 0, 0 );
-		for ( my $i = 1; $i >= 0; $i-- ) {
-			$u[$i] = $t % 60;
-			$t = int( $t/60 );
-		}
-		$info{$_}
-		    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
-	}
-
-	for (keys %info) {
-		$info{$_} = decode("UTF-8", $info{$_});
-	}
-
-	return \%info;
+	return info_clean(\%info);
 }
 
 sub get_track_info_mpris {
@@ -408,40 +401,11 @@ sub get_track_info_mpris {
 	$info{playback_time_remaining_seconds} = ($lenmili - $posmili) / 1000;
 
 	my $state = $mpris_player->{$player}->GetStatus;
-	if($state->[0] == 0) {
-		$info{isplaying} = 1;
-		$info{ispaused} = 0;
-	}
-	elsif($state->[0] == 1) {
-		$info{isplaying} = 1;
-		$info{ispaused} = 1;
-	}
-	else {
-		$info{isplaying} = 0;
-		$info{ispaused} = 0;
-	}
-
-	if (!$info{totaltracks} || $info{totaltracks} >= 10) {
-		$info{tracknumber} = sprintf("%02d", $info{tracknumber});
-	}
-
-	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
-		my $t = $info{"${_}_seconds"};
-
-		my @u = ( 0, 0 );
-		for ( my $i = 1; $i >= 0; $i-- ) {
-			$u[$i] = $t % 60;
-			$t = int( $t/60 );
-		}
-		$info{$_}
-		    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
-	}
-
-	for (keys %info) {
-		$info{$_} = decode("UTF-8", $info{$_});
-	}
-
-	return \%info;
+	$info{isplaying} = 1;
+	$info{ispaused} = $state->[0] == 1 ? 1 : 0;
+	$info{isplaying} = 0 if($state->[0] == 2);
+	
+	return info_clean(\%info);
 }
 
 sub get_track_info {
