@@ -87,7 +87,7 @@ our %heap;
 our $settings_file = undef;    # Only used by Xchat
 
 sub open_telnet {
-	eval { require Net::Telnet; 1 } or return undef;
+	eval { require Net::Telnet; 1 } or ( warn "Can't find Net::Telnet" and return undef );
 	$telnet
 	    = new Net::Telnet( Port => 3333, Timeout => 10, Errmode => 'return' )
 	    if not defined($telnet);
@@ -234,7 +234,7 @@ sub get_track_info_fb2k {
 }
 
 sub get_track_info_banshee {
-	eval { require Net::DBus; 1 } or return undef;
+	eval { require Net::DBus; 1 } or ( warn "Can't find Net::DBus" and return undef );
 
 	if(!$bplayer) {
 		$bus = Net::DBus->session or return undef;
@@ -343,7 +343,7 @@ sub get_track_info_banshee {
 }
 
 sub get_track_info_mpris {
-	eval { require Net::DBus; 1 } or die "Can't find Net::DBus";
+	eval { require Net::DBus; 1 } or ( warn "Can't find Net::DBus" and return undef );
 
 	if(!$mpris_player->{$player}) {
 		$bus = Net::DBus->session or return undef;
