@@ -261,7 +261,9 @@ sub get_track_info_banshee {
 	eval { require Net::DBus; 1 } or ( warn "Can't find Net::DBus" and return undef );
 
 	if(!$bplayer) {
-		$bus = Net::DBus->session or return undef;
+		if (!$bus) {
+			$bus = Net::DBus->session or return undef;
+		}
 		my $banshee = $bus->get_service("org.bansheeproject.Banshee") or return undef;
 		$bplayer = $banshee->get_object("/org/bansheeproject/Banshee/PlayerEngine",
 		                                "org.bansheeproject.Banshee.PlayerEngine") or return undef;
@@ -341,7 +343,9 @@ sub get_track_info_mpris {
 	eval { require Net::DBus; 1 } or ( warn "Can't find Net::DBus" and return undef );
 
 	if(!$mpris_player->{$player}) {
-		$bus = Net::DBus->session or return undef;
+		if (!$bus) {
+			$bus = Net::DBus->session or return undef;
+		}
 		my $p = $bus->get_service("org.mpris.$player") or return undef;
 		$mpris_player->{$player} = $p->get_object("/Player",
 		                                "org.freedesktop.MediaPlayer") or return undef;
