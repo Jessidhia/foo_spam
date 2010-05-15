@@ -2,7 +2,8 @@
 #
 # foo_spam - Prints the currently playing song from foobar2000.
 #
-# Copyright (c) 2009-2010, Diogo Franco <diogomfranco@gmail.com>
+# Copyright (c) 2009-2010, Diogo Franco (Kovensky) <diogomfranco@gmail.com>
+# Contributions by Kulag <g.kulag@gmail.com>
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
