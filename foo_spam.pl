@@ -100,7 +100,7 @@ sub open_telnet {
 	return $telnet_open;
 }
 
-our ($bus, $bplayer);
+our ($bus, $bplayer, $mpris_player);
 
 sub close_telnet {
 	if ($telnet_open) {
@@ -342,6 +342,108 @@ sub get_track_info_banshee {
 	return \%info;
 }
 
+sub get_track_info_mpris {
+	eval { require Net::DBus; 1 } or die "Can't find Net::DBus";
+
+	if(!$mpris_player->{$player}) {
+		$bus = Net::DBus->session or return undef;
+		my $p = $bus->get_service("org.mpris.$player") or return undef;
+		$mpris_player->{$player} = $p->get_object("/Player",
+		                                "org.freedesktop.MediaPlayer") or return undef;
+	}
+
+	my $metadata = $mpris_player->{$player}->GetMetadata or return undef;
+	my %info;
+
+	foreach (keys %$metadata) {
+		given ($_) {
+			when('location') {
+				$info{url} = $metadata->{$_};
+			}
+			when('title') {
+				$info{title} = $metadata->{$_};
+			}
+			when('artist') {
+				$info{artist} = $metadata->{$_};
+				$info{'album artist'} = $info{artist};
+			}
+			when('album') {
+				$info{album} = $metadata->{$_};
+			}
+			when('tracknumber') {
+				$info{tracknumber} = $metadata->{$_};
+			}
+			when('time') {
+				$info{length_seconds} = $metadata->{$_};
+			}
+			when('genre') {
+				$info{genre} = $metadata->{$_};
+			}
+			when('comment') {
+				$info{file_comment} = $metadata->{$_};
+			}
+			when('rating') {
+				$info{rating} = $metadata->{$_};
+			}
+			when('date') {
+				$info{date} = $metadata->{$_};
+			}
+			when('arturl') {
+				$info{arturl} = $metadata->{$_};
+			}
+			when('audio-bitrate') {
+				$info{bitrate} = $metadata->{$_};
+			}
+			when('audio-samplerate') {
+				$info{samplerate} = $metadata->{$_};
+			}
+		}
+	}
+
+	$info{player} = $player;
+
+	my $posmili = $mpris_player->{$player}->PositionGet;
+	my $lenmili = $metadata->{mtime};
+	$info{playback_time_seconds} = $posmili / 1000;
+	$info{playback_time_remaining_seconds} = ($lenmili - $posmili) / 1000;
+
+	my $state = $mpris_player->{$player}->GetStatus;
+	if($state->[0] == 0) {
+		$info{isplaying} = 1;
+		$info{ispaused} = 0;
+	}
+	elsif($state->[0] == 1) {
+		$info{isplaying} = 1;
+		$info{ispaused} = 1;
+	}
+	else {
+		$info{isplaying} = 0;
+		$info{ispaused} = 0;
+	}
+
+	if (!$info{totaltracks} || $info{totaltracks} >= 10) {
+		$info{tracknumber} = sprintf("%02d", $info{tracknumber});
+	}
+
+	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
+		my $t = $info{"${_}_seconds"};
+
+		my @u = ( 0, 0 );
+		for ( my $i = 1; $i >= 0; $i-- ) {
+			$u[$i] = $t % 60;
+			$t = int( $t/60 );
+		}
+		$info{$_}
+		    = sprintf( "%s%02d:%02d", $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
+	}
+
+	for (keys %info) {
+		$info{$_} = decode("UTF-8", $info{$_});
+	}
+
+	return \%info;
+}
+
 sub get_track_info {
 	given($player) {
 		when("foobar2000") {
@@ -349,6 +451,9 @@ sub get_track_info {
 		}
 		when("banshee") {
 			return get_track_info_banshee(@_);
+		}
+		when('amarok') {
+			return get_track_info_mpris(@_);
 		}
 	}
 }
@@ -1127,6 +1232,9 @@ if (HAVE_IRSSI) {
 			            when("banshee") {
 				            $player = "banshee";
 			            }
+			            when('amarok') {
+					    $player = 'amarok';
+				    }
 			            default {
 				            die "Player must be 'foobar2000' or 'banshee'.";
 			            }
@@ -1148,7 +1256,7 @@ EOF
 		print( STDERR "@_\n" ) if @_;
 	};
 	$format = join( " ", @ARGV ) if $ARGV[0];
-	my $np = get_np_string();
+	my $np = get_np_string($comment);
 	print "$np\n" if $np;
 }
 
