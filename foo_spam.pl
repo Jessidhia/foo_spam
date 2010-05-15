@@ -401,16 +401,18 @@ sub get_track_info_mpris {
 
 	$info{player} = $player;
 
+	my $state = $mpris_player->{$player}->GetStatus;
+	$info{isplaying} = 1;
+	$info{ispaused} = $state->[0] == 1 ? 1 : 0;
+	$info{isplaying} = 0 if($state->[0] == 2);
+	return if !$info{isplaying};
+
 	my $posmili = $mpris_player->{$player}->PositionGet;
 	my $lenmili = $metadata->{mtime};
 	$info{playback_time_seconds} = $posmili / 1000;
 	$info{playback_time_remaining_seconds} = ($lenmili - $posmili) / 1000;
 
-	my $state = $mpris_player->{$player}->GetStatus;
-	$info{isplaying} = 1;
-	$info{ispaused} = $state->[0] == 1 ? 1 : 0;
-	$info{isplaying} = 0 if($state->[0] == 2);
-	
+
 	return info_clean(\%info);
 }
 
