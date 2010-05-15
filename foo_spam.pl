@@ -237,8 +237,9 @@ sub get_track_info_fb2k {
 		$info->{'totaldiscs'} = $fields[19];
 	}
 
-	$info->{player} = "foobar2000";
-	$info->{version} = substr $info->{'_foobar2000_version'}, 11;
+	my @ver = split (/ /, $info->{'_foobar2000_version'}, 2);
+	$info->{'player'} = $ver[0];
+	$info->{'version'} = $ver[1];
 
 	$info->{'isplaying'} = 1;
 	$info->{'ispaused'}  = 0;
@@ -247,7 +248,6 @@ sub get_track_info_fb2k {
 	} elsif ( $info->{'state'} eq "112" ) {
 		$info->{'isplaying'} = 0;
 	}
-	delete $info->{'state'};
 
 	for ( keys %$info ) {
 		delete $info->{$_}
