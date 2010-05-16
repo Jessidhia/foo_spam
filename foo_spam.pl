@@ -117,6 +117,11 @@ sub send_command {
 
 	my $line;
 	my $command = shift;
+	$command && $command =~ s/^previous$/prev/;
+	if( !$command || !grep { $_ eq $command } ("play", "pause", "next", "prev", "stop") ) {
+		warn "Invalid command. Must be one of 'play', 'pause', 'next', 'prev', 'previous' or 'stop'.";
+		return;
+	}
 	my $state;
 	while( ($line = $telnet->getline(Errmode => "return", Timeout => 5)) ) {
 		if( $line =~ /^11(\d)/ ) {
@@ -1218,24 +1223,7 @@ if (HAVE_IRSSI) {
 	            },
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
-	            'command=s' => sub {
-		            given($_[1]) {
-			            when("play") {
-				            $command = "play";
-			            } when("pause") {
-				            $command = "pause";
-			            } when("next") {
-				            $command = "next";
-			            } when(["previous", "prev"]) {
-				            $command = "prev";
-			            } when("stop") {
-				            $command = "stop";
-			            } default {
-				            print STDERR "Invalid command, must be one of 'play', 'pause', 'next', 'prev' or 'stop'.\n";
-				            exit 1;
-			            }
-		            }
-	            },
+	            'command=s' => \$command,
 	            'help' => sub {
 		            $_ = <<EOF;
 foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
