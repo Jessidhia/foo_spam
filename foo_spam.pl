@@ -1024,6 +1024,7 @@ if (HAVE_IRSSI) {
 	Irssi::command_bind( 'foo_format', 'print_foo_format_help' );
 	Irssi::command_bind( 'foo_tags',   'print_foo_tags' );
 	Irssi::command_bind( 'foo_funcs',  'print_foo_funcs' );
+	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
 } elsif (HAVE_XCHAT) {
 	*print_now_playing = sub {
 		my $str = get_np_string( $_[0][1] ? $_[1][1] : undef );
@@ -1136,6 +1137,8 @@ if (HAVE_IRSSI) {
 		{ help => "displays or changes the current format string" } );
 	Xchat::hook_command( "set_foo_player", "set_foo_player",
 		{ help => "displays or changes the used player" } );
+	Xchat::hook_command( "foo_control", sub { send_command($_[0][1]); return Xchat::EAT_ALL(); },
+		{ help => "sends a command to foobar2000. One of play, pause, stop, next or prev." } );
 	Xchat::hook_command( "foo_format", "print_foo_format_help",
 		{ help => "explains how to configure the format string" } );
 	Xchat::hook_command( "foo_tags", "print_foo_tags",
@@ -1191,6 +1194,8 @@ if (HAVE_IRSSI) {
 	weechat::hook_command( 'aud',
 		'prints your currently playing song on your selected player on an ACTION',
 		'', '', '%(nicks)', 'print_now_playing', '' );
+	weechat::hook_command( 'foo_control', "sends a command to foobar2000. One of play, pause, stop, next or prev.",
+	    '', '', '', sub { send_command($_[2][0]); return weechat::WEECHAT_RC_OK_EAT(); }, '' );
 	weechat::hook_command( 'foo_help', 'explains how to set up foobar2000',
 		'', '', '', 'print_foo_help', '' );
 	weechat::hook_command( 'foo_format',
