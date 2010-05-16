@@ -1018,13 +1018,13 @@ if (HAVE_IRSSI) {
 	$format = Irssi::settings_get_str("foo_format");
 	$player = lc(Irssi::settings_get_str("foo_player"));
 
-	Irssi::command_bind( 'aud',        'print_now_playing' );
-	Irssi::command_bind( 'np',         'print_now_playing' );
-	Irssi::command_bind( 'foo_help',   'print_foo_help' );
-	Irssi::command_bind( 'foo_format', 'print_foo_format_help' );
-	Irssi::command_bind( 'foo_tags',   'print_foo_tags' );
-	Irssi::command_bind( 'foo_funcs',  'print_foo_funcs' );
+	Irssi::command_bind( 'aud',         'print_now_playing' );
+	Irssi::command_bind( 'np',          'print_now_playing' );
 	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
+	Irssi::command_bind( 'foo_help',    'print_foo_help' );
+	Irssi::command_bind( 'foo_format',  'print_foo_format_help' );
+	Irssi::command_bind( 'foo_tags',    'print_foo_tags' );
+	Irssi::command_bind( 'foo_funcs',   'print_foo_funcs' );
 } elsif (HAVE_XCHAT) {
 	*print_now_playing = sub {
 		my $str = get_np_string( $_[0][1] ? $_[1][1] : undef );
@@ -1217,11 +1217,9 @@ if (HAVE_IRSSI) {
 		            given($_[1]) {
 			            when("foobar2000") {
 				            $player = "foobar2000";
-			            }
-			            when("banshee") {
+			            } when("banshee") {
 				            $player = "banshee";
-			            }
-			            default {
+			            } default {
 				            $player = lc($_[1]);
 			            }
 		            }
