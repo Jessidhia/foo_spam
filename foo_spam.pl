@@ -896,15 +896,17 @@ Note that the script does not work remotely for Banshee.
 Run /foo_help for help setting foobar2000 up.
 \002----------------------------------------------------------------------------------------------------
 Usage:
-/aud        - prints the playing song as an ACTION
-/np         - alias to /aud
-/foo_help   - explains how to set up foobar2000
-/foo_format - explains how to set up the output format
+/aud         - prints the playing song as an ACTION
+/np          - alias to /aud
+/foo_control - sends a command to your player. One of 'play', 'pause', 'prev', 'next', 'stop'.
+/foo_help    - explains how to set up foobar2000
+/foo_format  - explains how to set up the output format
 \002----------------------------------------------------------------------------------------------------
 \002To choose which player will be used (default is foobar2000), do:
  * Irssi: /set foo_player <player>
  * X-Chat: /set_foo_player <player>
  * WeeChat: /set plugins.var.foo_spam.player <player>
+For now, /foo_control only supports foobar2000.
 foobar2000 and banshee have specific implementations. Other players will use the MPRIS interface.
 \002----------------------------------------------------------------------------------------------------
 
@@ -1231,7 +1233,11 @@ if (HAVE_IRSSI) {
 		            $_ = <<EOF;
 foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 Supports command line, X-Chat, irssi and weechat.
-Usage: foo_spam.pl [--player={foobar2000,banshee}] [--format='formatting string'] [--comment='value of \%comment%']
+Options:
+    --player=PLAYER    Any of the supported players
+    --format=FORMAT    The string template in foobar2000's title format syntax.
+    --comment=COMMENT  The value of \%comment%
+    --command=COMMAND  A command to send to foobar2000. One of 'play', 'pause', 'prev', 'next', 'stop'. Foobar2000 only.
 EOF
 		            print $_;
 		            exit;
