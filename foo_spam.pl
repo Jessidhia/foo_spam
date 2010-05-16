@@ -1179,7 +1179,7 @@ if (HAVE_IRSSI) {
 
 	*print_foo_funcs = sub {
 		irc_print( get_funclist_string() );
-		return Xchat::WEECHAT_RC_OK_EAT();
+		return weechat::WEECHAT_RC_OK_EAT();
 	};
 
 	unless ( weechat::config_is_set_plugin("format") ) {
