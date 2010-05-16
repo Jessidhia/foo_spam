@@ -952,6 +952,7 @@ List of available tags (refer to foobar2000's documentation for their meanings):
  - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
  - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
  - %codec%, %bitrate%, %codec_profile%
+foo_spam sets %foo_spam_version% with its own version.
 foo_spam also sets %player% and %version%, which refer to the used player and its version.
 The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
 EOF
