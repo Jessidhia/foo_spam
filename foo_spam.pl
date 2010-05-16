@@ -17,7 +17,12 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-my $VERSION  = '0.8';
+use utf8;
+use warnings;
+use strict;
+use version 0.77;
+
+our $VERSION  = qv("v0.8.1");
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -28,6 +33,7 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.8.1 - Added --command and /foo_control. Added %foo_spam_version% tag.
 # 0.8   - Added MPRIS support, patch by Kulag.
 # 0.7   - Added Banshee support. Parses command line options using Getopt::Long.
 # 0.6.1 - Added weechat support.
@@ -48,9 +54,6 @@ my %info = (
 # Doesn't support tags that are equal to "?" (foo_controlserver limitation).
 # MPRIS (or amarok) is dumb and doesn't export album artist information.
 
-use warnings;
-use strict;
-use utf8;
 use Encode;
 use Getopt::Long;
 use feature "switch";
