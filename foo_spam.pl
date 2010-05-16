@@ -112,6 +112,29 @@ sub close_telnet {
 	}
 }
 
+sub send_command {
+	return unless open_telnet();
+
+	my $line;
+	my $command = shift;
+	my $state;
+	while( ($line = $telnet->getline(Errmode => "return", Timeout => 5)) ) {
+		if( $line =~ /^11(\d)/ ) {
+			$state = $1;
+			last;
+		}
+	}
+	return unless defined $state;
+	if( $command eq "pause" and $state eq "2" ) {
+		$telnet->print("play");
+	} else {
+		$telnet->print($command);
+	}
+	while( ($line = $telnet->getline(Errmode => "return", Timeout => 5)) && $line !~ /^11/ )
+	    {}
+	close_telnet;
+}
+
 sub info_clean {
 	my $info = shift;
 
@@ -1178,6 +1201,7 @@ if (HAVE_IRSSI) {
 	binmode( STDOUT, ":encoding(utf-8)" );
 	
 	my $comment = undef;
+	my $command = undef;
 
 	GetOptions( 'player=s' => sub {
 		            given($_[1]) {
@@ -1194,6 +1218,24 @@ if (HAVE_IRSSI) {
 	            },
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
+	            'command=s' => sub {
+		            given($_[1]) {
+			            when("play") {
+				            $command = "play";
+			            } when("pause") {
+				            $command = "pause";
+			            } when("next") {
+				            $command = "next";
+			            } when(["previous", "prev"]) {
+				            $command = "prev";
+			            } when("stop") {
+				            $command = "stop";
+			            } default {
+				            print STDERR "Invalid command, must be one of 'play', 'pause', 'next', 'prev' or 'stop'.\n";
+				            exit 1;
+			            }
+		            }
+	            },
 	            'help' => sub {
 		            $_ = <<EOF;
 foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
@@ -1208,6 +1250,7 @@ EOF
 		print( STDERR "@_\n" ) if @_;
 	};
 	$format = join( " ", @ARGV ) if $ARGV[0];
+	send_command($command) if ($command);
 	my $np = get_np_string($comment);
 	print "$np\n" if $np;
 }
