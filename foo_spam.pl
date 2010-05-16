@@ -196,6 +196,10 @@ sub info_clean {
 	}
 
 	for (keys %$info) {
+		delete $info->{$_} unless defined $info->{$_} and $info->{$_} ne '';
+	}
+	
+	for (keys %$info) {
 		$info->{$_} = decode("UTF-8", $info->{$_}) unless utf8::is_utf8($info->{$_});
 	}
 	return $info;
