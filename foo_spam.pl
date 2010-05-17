@@ -930,7 +930,6 @@ Recommended setting:
 NOTE: the script only works with either the default or this custom Fields line.
 
 This script can also work via SSH tunneling, by using -R 3333:localhost:3333.
-
 EOF
 	    ;
 	return $help;
@@ -959,7 +958,6 @@ Usage:
 For now, /foo_control only supports foobar2000.
 foobar2000 and banshee have specific implementations. Other players will use the MPRIS interface.
 \002----------------------------------------------------------------------------------------------------
-
 EOF
 	    ;
 	return $intro;
@@ -986,7 +984,6 @@ You can also edit the script and change the value of \$default_format, in case
 you use an unsupported client.
 
 Default: $default_format
-
 EOF
 	    ;
 	return $help;
