@@ -940,7 +940,7 @@ sub get_intro_string {
 	my $intro = <<EOF
 \002----------------------------------------------------------------------------------------------------
 \002foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
-\002Created by Kovensky \(irc.rizon.net #shameimaru\)
+\002Version $VERSION - Created by Kovensky \(irc.rizon.net #shameimaru\)
 This script requires Banshee or a properly configured foobar2000.
 Note that the script does not work remotely for Banshee.
 Run /foo_help for help setting foobar2000 up.
@@ -1282,7 +1282,7 @@ if (HAVE_IRSSI) {
 	            'command=s' => \$command,
 	            'help' => sub {
 		            $_ = <<EOF;
-foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
+foo_spam $VERSION - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 Supports command line, X-Chat, irssi and weechat.
 Options:
     --player=PLAYER    Any of the supported players
