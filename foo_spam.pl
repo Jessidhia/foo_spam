@@ -942,7 +942,7 @@ sub get_intro_string {
 \002foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 \002Version $VERSION - Created by Kovensky \(irc.rizon.net #shameimaru\)
 This script requires Banshee or a properly configured foobar2000.
-Note that the script does not work remotely for Banshee.
+Note that the script only works remotely with foobar2000.
 Run /foo_help for help setting foobar2000 up.
 \002----------------------------------------------------------------------------------------------------
 Usage:
