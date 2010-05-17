@@ -204,7 +204,10 @@ sub info_clean {
 			$fs /= 1024;
 			++$i;
 		}
-		$info->{'filesize_natural'} = sprintf('%.2g%sB', $fs, $mult[$i]);
+		my $fs_n = sprintf('%.2f', $fs);
+		$fs_n =~ s/\.(.*?)0+$/@{[$1 ? ".$1" : ""]}/;
+		$fs_n .= "$mult[$i]B";
+		$info->{'filesize_natural'} = $fs_n;
 	}
 
 	for (keys %$info) {
