@@ -84,7 +84,7 @@ our $telnet         = undef;
 our $default_format = <<'EOF';
 %player%[ (%version%)]:
  [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
- [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %codec%[ %codec_profile%]][ <-- %comment%]
+ [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %comment%]
 EOF
 $default_format =~ s/\R//g;
 our $format = $default_format;
