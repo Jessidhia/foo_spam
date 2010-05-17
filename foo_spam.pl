@@ -22,7 +22,7 @@ use warnings;
 use strict;
 use version 0.77;
 
-our $VERSION  = qv("v0.8.2");
+our $VERSION  = qv("v0.8.3");
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -33,6 +33,7 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.8.3 - Better %filesize_natural% calculation
 # 0.8.2 - Added support for several file information tags. The Fields option on foobar2000 was changed, support for the old one will be dropped after two major bumps.
 # 0.8.1 - Added --command and /foo_control. Added %foo_spam_version% tag.
 # 0.8   - Added MPRIS support, patch by Kulag.
