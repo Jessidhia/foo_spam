@@ -22,7 +22,7 @@ use warnings;
 use strict;
 use version 0.77;
 
-our $VERSION  = qv("v0.8.1");
+our $VERSION  = qv("v0.8.2");
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -33,6 +33,7 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.8.2 - Added support for several file information tags. The Fields option on foobar2000 was changed, support for the old one will be dropped after two major bumps.
 # 0.8.1 - Added --command and /foo_control. Added %foo_spam_version% tag.
 # 0.8   - Added MPRIS support, patch by Kulag.
 # 0.7   - Added Banshee support. Parses command line options using Getopt::Long.
@@ -195,6 +196,17 @@ sub info_clean {
 		}
 	}
 
+	if ( $info->{'filesize'} && !$info->{'filesize_natural'} ) {
+		my @mult = ('', 'k', 'M', 'G', 'T');
+		my $fs = $info->{'filesize'};
+		my $i = 0;
+		while ($fs > 1024) {
+			$fs /= 1024;
+			++$i;
+		}
+		$info->{'filesize_natural'} = sprintf('%.2f%sB', $fs, $mult[$i]);
+	}
+
 	for (keys %$info) {
 		delete $info->{$_} unless defined $info->{$_} and $info->{$_} ne '';
 	}
@@ -263,15 +275,29 @@ sub get_track_info_fb2k {
 	if ( $fields[19] ) {
 		$info->{'artist'}        = $fields[12];
 		$info->{'totaltracks'}   = $fields[13];
-		$info->{'playback_time'} = $fields[14];
-		$info->{'length'}        = $fields[15];
+		if ( $fields[20] ) { # New 0.8.2 format
+			$info->{'length_seconds'}      = $fields[14];
+			$info->{'_foobar2000_version'} = $fields[15];
+			
+			$info->{'codec_profile'} = $fields[16];
+			
+			$info->{'discnumber'} = $fields[17];
+			$info->{'totaldiscs'} = $fields[18];
 
-		$info->{'_foobar2000_version'} = $fields[16];
-
-		$info->{'codec_profile'} = $fields[17];
-
-		$info->{'discnumber'} = $fields[18];
-		$info->{'totaldiscs'} = $fields[19];
+			$info->{'filesize'}  = $fields[19];
+			$info->{'_path_raw'} = $fields[20];
+			$info->{'_path_raw'} =~ s!\\!/!g;
+		} else {
+			$info->{'playback_time'} = $fields[14];
+			$info->{'length'}        = $fields[15];
+			
+			$info->{'_foobar2000_version'} = $fields[16];
+			
+			$info->{'codec_profile'} = $fields[17];
+			
+			$info->{'discnumber'} = $fields[18];
+			$info->{'totaldiscs'} = $fields[19];
+		}
 	}
 
 	my @ver = split (/ /, $info->{'_foobar2000_version'}, 2);
@@ -284,6 +310,18 @@ sub get_track_info_fb2k {
 		$info->{'ispaused'} = 1;
 	} elsif ( $info->{'state'} eq "112" ) {
 		$info->{'isplaying'} = 0;
+	}
+
+	if ($info->{'_path_raw'}) {
+		my @path = split /\/+/, $info->{'_path_raw'};
+		$info->{'filename_ext'}  = $path[$#path];
+		$info->{'directoryname'} = $path[$#path-1];
+		
+		$info->{'filename'} = $info->{'filename_ext'};
+		$info->{'filename'} =~ s/(.*)\..*/$1/;
+		if ($path[0] eq 'file:') {
+			$info->{'path'} = join '/', @path[1 .. $#path];
+		}
 	}
 
 	for ( keys %$info ) {
@@ -884,7 +922,7 @@ Required settings: Control Server tab:
 * Base delimiter: |||
 Recommended setting:
 * Number of Clients: Some big number like 700
-* Fields: %codec%|||%bitrate%|||%album artist%|||%album%|||%date%|||%genre%|||%tracknumber%|||%title%|||%artist%|||%totaltracks%|||%playback_time%|||%length%|||%_foobar2000_version%|||%codec_profile%|||%discnumber%|||%totaldiscs%
+* Fields: %codec%|||%bitrate%|||%album artist%|||%album%|||%date%|||%genre%|||%tracknumber%|||%title%|||%artist%|||%totaltracks%|||%length_seconds%|||%_foobar2000_version%|||%codec_profile%|||%discnumber%|||%totaldiscs%|||%filesize%|||%_path_raw%
 
 NOTE: the script only works with either the default or this custom Fields line.
 
@@ -959,6 +997,8 @@ List of available tags (refer to foobar2000's documentation for their meanings):
  - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
  - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
  - %codec%, %bitrate%, %codec_profile%
+ - %filename%, %filename_ext%, %directoryname%, %path%, %_path_raw%
+ - %filesize%, %filesize_natural%
 foo_spam sets %foo_spam_version% with its own version.
 foo_spam also sets %player% and %version%, which refer to the used player and its version.
 The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
