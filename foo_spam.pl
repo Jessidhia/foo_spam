@@ -174,8 +174,11 @@ sub info_clean {
 		}
 	}
 
-	if (!$info->{'totaltracks'} || $info->{'totaltracks'} >= 10) {
-		$info->{'tracknumber'} = sprintf("%02d", $info->{'tracknumber'});
+	if (!$info->{'tracknumber'} && $info->{'track number'}) {
+		$info->{'tracknumber'} = sprintf("%02d", $info->{'track number'});
+	}
+	if ($info->{'tracknumber'} || $info->{'track number'}) {
+		$info->{'track number'} = sprintf("%0". length(int($info->{'totaltracks'} ? $info->{'totaltracks'} : 0)) ."d", $info->{'tracknumber'} ? $info->{'tracknumber'} : $info->{'track number'});
 	}
 	
 	if ( $info->{'length_seconds'} and $info->{'playback_time_seconds'} ) {
@@ -359,7 +362,7 @@ sub get_track_info_banshee {
 				$info{'album artist'} = $btags{$_};
 			}
 			when ("track-number") {
-				$info{tracknumber} = $btags{$_};
+				$info{'track number'} = int($btags{$_});
 			}
 			when ("track-count") {
 				$info{totaltracks} = $btags{$_};
@@ -449,7 +452,7 @@ sub get_track_info_mpris {
 				$info{album} = $metadata->{$_};
 			}
 			when('tracknumber') {
-				$info{tracknumber} = $metadata->{$_};
+				$info{'track number'} = $metadata->{$_};
 			}
 			when('time') {
 				$info{length_seconds} = $metadata->{$_};
@@ -996,7 +999,7 @@ List of available tags (refer to foobar2000's documentation for their meanings):
  - %isplaying%, %ispaused%, %_foobar2000_version%
  - %playback_time%, %playback_time_remaining%, %length% (plus the _seconds variants)
  - %artist%, %album artist%, %track artist%, %album%, %title%, %genre%
- - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %totaltracks%
+ - %date%, %discnumber%, %totaldiscs%, %tracknumber%, %track number%,  %totaltracks%
  - %codec%, %bitrate%, %codec_profile%
  - %filename%, %filename_ext%, %directoryname%, %path%, %_path_raw%
  - %filesize%, %filesize_natural%
