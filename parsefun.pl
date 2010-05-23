@@ -182,6 +182,12 @@ sub apply_tree {
 			return $res if (defined $res && $var_chk);
 			return undef;
 		};
+		my $asint = sub {
+			$_=shift;
+			return undef unless defined;
+			return int if (/^[0-9]+$/);
+			return undef;
+		};
 		
 		$funcs = {
 			"foo_base"  => sub { return join "", $apply->(@_) },
