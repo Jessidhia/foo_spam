@@ -515,6 +515,13 @@ sub apply_tree {
 				return uc($str) if $defcheck->($ok, $str);
 				return undef;
 			},
+			"fix_eol" => sub {
+				my ($ok, $meta, $repl) = $getargs->('fix_eol',1,2,@_);
+				return undef unless $defcheck->($ok, $meta);
+				$repl = " (...)" unless $defcheck->($repl);
+				$meta =~ s/\010?\013.*//;
+				return "$meta$repl";
+			},
 		};
 	}
 	
