@@ -251,6 +251,11 @@ sub apply_tree {
 				return undef unless defined $_[0] && defined $_[1];
 				return $_[0] x $_[1];
 			},
+			"trim" => sub {
+				return undef unless $checkargs->('trim',1,1,@_) && defined $_[0];
+				($_=shift) =~ /^\s*+(.*?)\s*+$/;
+				return $1;
+			},
 		};
 	}
 	
