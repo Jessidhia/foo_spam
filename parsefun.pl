@@ -283,7 +283,12 @@ sub apply_tree {
 				}
 				return undef;
 			},
-
+			"greater" => sub {
+				my ($ok, $a, $b) = $getargs->('greater',2,2,@_);
+				return undef unless $defcheck->($ok, $a = $asint->($a), $b = $asint->($b));
+				return $a >= $b ? $a : $b;
+			},
+			
 			"len" => sub {
 				(my($ok), $_) = $getargs->('len',1,1,@_);
 				return undef unless $defcheck->($ok, $_);
