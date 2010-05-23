@@ -283,6 +283,36 @@ sub apply_tree {
 				}
 				return undef;
 			},
+			"ifgreater" => sub {
+				my ($ok, $a, $b, $then, $else) = $checkargs->('ifgreater',3,4,@_);
+				map { $_ = $exec->($_) } ($a, $b);
+				$a = -1 unless $defcheck->($a = $asint->($a));
+				$b = -1 unless $defcheck->($b = $asint->($b));
+				return $exec->($then) if ($a > $b);
+				return $exec->($else);
+			},
+			"iflonger" => sub {
+				my ($ok, $str, $len, $then, $else) = $checkargs->('ifgreater',3,4,@_);
+				map { $_ = $exec->($_) } ($str, $len);
+				return $exec->($else) unless $defcheck->($str);
+				$len = -1 unless $defcheck->($len = $asint->($len));
+				return $exec->($then) if (length($str) > $len);
+				return $exec->($else);
+			},
+			"ifequal" => sub {
+				my ($ok, $a, $b, $then, $else) = $checkargs->('ifequal',3,4,@_);
+				map { $_ = $exec->($_) } ($a, $b);
+				$a = 0 unless $defcheck->($a);
+				$b = 0 unless $defcheck->($b);
+				my ($ia, $ib) = ($asint->($a), $asint->($b));
+				if ($defcheck->($ia, $ib)) {
+					return $exec->($then) if $ia == $ib;
+					return $exec->($else);
+				}
+				return $exec->($then) if $a eq $b;
+				return $exec->($else);
+			},
+			
 			"greater" => sub {
 				my ($ok, $a, $b) = $getargs->('greater',2,2,@_);
 				return undef unless $defcheck->($ok, $a = $asint->($a), $b = $asint->($b));
