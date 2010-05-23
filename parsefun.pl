@@ -253,9 +253,9 @@ sub apply_tree {
 				return length($_);
 			},
 			"repeat" => sub {
-				return undef unless $checkargs->('len',2,2,@_);
-				return undef unless defined $_[0] && defined $_[1];
-				return $_[0] x $_[1];
+				my $c;
+				return undef unless $checkargs->('len',2,2,@_) && defined $_[0] && ($c = $asint->($_[1]));
+				return $_[0] x $c;
 			},
 			"trim" => sub {
 				return undef unless $checkargs->('trim',1,1,@_) && defined $_[0];
