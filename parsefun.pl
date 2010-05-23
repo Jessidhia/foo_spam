@@ -284,7 +284,7 @@ sub apply_tree {
 				return undef;
 			},
 			"ifgreater" => sub {
-				my ($ok, $a, $b, $then, $else) = $checkargs->('ifgreater',3,4,@_);
+				my ($ok, $a, $b, $then, $else) = ($checkargs->('ifgreater',3,4,@_), @_);
 				map { $_ = $exec->($_) } ($a, $b);
 				$a = -1 unless $defcheck->($a = $asint->($a));
 				$b = -1 unless $defcheck->($b = $asint->($b));
@@ -292,7 +292,7 @@ sub apply_tree {
 				return $exec->($else);
 			},
 			"iflonger" => sub {
-				my ($ok, $str, $len, $then, $else) = $checkargs->('ifgreater',3,4,@_);
+				my ($ok, $str, $len, $then, $else) = ($checkargs->('ifgreater',3,4,@_), @_);
 				map { $_ = $exec->($_) } ($str, $len);
 				return $exec->($else) unless $defcheck->($str);
 				$len = -1 unless $defcheck->($len = $asint->($len));
@@ -300,7 +300,7 @@ sub apply_tree {
 				return $exec->($else);
 			},
 			"ifequal" => sub {
-				my ($ok, $a, $b, $then, $else) = $checkargs->('ifequal',3,4,@_);
+				my ($ok, $a, $b, $then, $else) = ($checkargs->('ifequal',3,4,@_), @_);
 				map { $_ = $exec->($_) } ($a, $b);
 				$a = 0 unless $defcheck->($a);
 				$b = 0 unless $defcheck->($b);
