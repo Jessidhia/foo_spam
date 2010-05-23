@@ -189,6 +189,11 @@ sub apply_tree {
 			return int if (/^[0-9]+$/);
 			return undef;
 		};
+		my $nonempty = sub {
+			$_=shift;
+			return undef unless defined && $_ ne '';
+			return $_;
+		};
 		
 		$funcs = {
 			"foo_base"  => sub { return join "", $apply->(@_) },
@@ -210,7 +215,7 @@ sub apply_tree {
 				return "";
 			},
 			"put" => sub {
-				return undef unless $checkargs->('put',2,2,@_) && defined $_[0] && $_[0] ne '';
+				return undef unless $checkargs->('put',2,2,@_) && $nonempty->($_[0]);
 				if (defined $_[1]) {
 					return $heap{$_[0]} = $_[1];
 				}
@@ -222,7 +227,7 @@ sub apply_tree {
 				return defined $funcs->{"put"}->(@_) ? "" : undef;
 			},
 			"get" => sub {
-				return undef unless $checkargs->('get',1,1,@_) && defined $_[0] && $_[0] ne '';
+				return undef unless $checkargs->('get',1,1,@_) && $nonempty->($_[0]);
 				return exists $heap{$_[0]} ? $heap{$_[0]} : undef;
 			},
 			
@@ -290,13 +295,13 @@ sub apply_tree {
 			"pad" => sub {
 				my $len;
 				return undef unless $checkargs->('pad',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
+				my $c = $nonempty->($_[2]) ? substr $_[2], 0, 1 : " ";
 				return ($c x ($len - length($_[0]))) . $_[0];
 			},
 			"pad_right" => sub {
 				my $len;
 				return undef unless $checkargs->('pad_right',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
+				my $c = $nonempty->($_[2]) ? substr $_[2], 0, 1 : " ";
 				return $_[0] . ($c x ($len - length($_[0])));
 			},
 			"padcut" => sub {
