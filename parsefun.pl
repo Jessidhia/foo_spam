@@ -492,6 +492,19 @@ sub apply_tree {
 				}
 				return $ax;
 			},
+			
+			"caps" => sub {
+				my ($ok, $str) = $getargs->('caps',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ s/\b(\S)(\S*)\b/@{[uc($1)]}@{[lc($2)]}/g;
+				return $str;
+			},
+			"caps2" => sub {
+				my ($ok, $str) = $getargs->('caps2',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ s/\b(\S)/@{[uc($1)]}/g;
+				return $str;
+			},
 		};
 	}
 	
