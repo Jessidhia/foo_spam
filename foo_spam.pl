@@ -24,7 +24,7 @@ use common::sense;
 use feature ':5.10';
 use version 0.77;
 
-our $VERSION  = qv("v0.9.0");
+our $VERSION  = qv("v0.9.1");
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -35,6 +35,7 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.9.1 - Reverted 0.9.0, it broke everything.
 # 0.8.3 - Better %filesize_natural% calculation
 # 0.8.2 - Added support for several file information tags. The Fields option on foobar2000 was changed, support for the old one will be dropped after two major bumps.
 # 0.8.1 - Added --command and /foo_control. Added %foo_spam_version% tag.
