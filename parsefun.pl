@@ -410,6 +410,13 @@ sub apply_tree {
 				}
 				return $abbr;
 			},
+			"num" => sub {
+				my ($ok, $num, $len) = $getargs->('num',2,2,@_);
+				return undef unless $defcheck->($num = $asint->($num), $len = $asint->($len));
+				return undef if $len < 0;
+				return "" if $len == 0;
+				return sprintf("%0${len}d", $num);
+			},
 		};
 	}
 	
