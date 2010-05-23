@@ -279,7 +279,7 @@ sub apply_tree {
 			"repeat" => sub {
 				my $c;
 				return undef unless $checkargs->('len',2,2,@_) && defined $_[0] && defined ($c = $asint->($_[1]));
-				return $c ? ($_[0] x $c) : (defined $_[0] ? "" : undef);
+				return $c ? ($_[0] x $c) : "";
 			},
 			"trim" => sub {
 				return undef unless $checkargs->('trim',1,1,@_) && defined $_[0];
