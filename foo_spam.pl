@@ -17,9 +17,11 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use utf8;
-use warnings;
-use strict;
+package foo_spam;
+
+use v5.10.1;
+use common::sense;
+use feature ':5.10';
 use version 0.77;
 
 our $VERSION  = qv("v0.8.3");
@@ -58,8 +60,6 @@ my %info = (
 
 use Encode;
 use Getopt::Long;
-use feature "switch";
-
 use File::Path;
 use Time::HiRes qw(usleep);
 
