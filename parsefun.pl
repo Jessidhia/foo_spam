@@ -212,9 +212,34 @@ sub apply_tree {
 			"foo_variable" => sub {
 				$_ = shift;
 				$has_var[$lex_lvl] = 1;
-				if ( defined $info->{$_} ) {
+				my $ret;
+				given ($_) {
+					when ("artist") {
+						$ret = $exec->(['if3',
+							['meta','artist'],['meta','album artist'],
+							['meta','composer'],['meta','performer']]);
+					}
+					when ("album artist") {
+						$ret = $exec->(['if3',
+							['meta','album artist'],['meta','artist'],
+							['meta','composer'],['meta','performer']]);
+					}
+					when ("track artist") {
+						my $ta = $funcs->{"meta"}->('artist');
+						my $aa = $funcs->{"meta"}->('album artist');
+						if (defined $ta && defined $aa && $ta ne $aa) {
+							$ret = $ta;
+						} else {
+							$ret = undef;
+						}
+					}
+					default {
+						$ret = $funcs->{'meta'}->($_);
+					}
+				}
+				if ( defined $ret ) {
 					$var_ok[$lex_lvl] = 1;
-					return $info->{$_};
+					return $ret;
 				}
 				$all_var_ok = 0;
 				return undef;
