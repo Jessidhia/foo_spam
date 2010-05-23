@@ -505,6 +505,16 @@ sub apply_tree {
 				$str =~ s/\b(\S)/@{[uc($1)]}/g;
 				return $str;
 			},
+			"lower" => sub {
+				my ($ok, $str) = $getargs->('lower',1,1,@_);
+				return lc($str) if $defcheck->($ok, $str);
+				return undef;
+			},
+			"upper" => sub {
+				my ($ok, $str) = $getargs->('upper',1,1,@_);
+				return uc($str) if $defcheck->($ok, $str);
+				return undef;
+			},
 		};
 	}
 	
