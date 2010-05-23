@@ -24,7 +24,7 @@ use common::sense;
 use feature ':5.10';
 use version 0.77;
 
-our $VERSION  = qv("v0.8.3");
+our $VERSION  = qv("v0.9.0");
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
