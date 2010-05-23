@@ -186,7 +186,7 @@ sub apply_tree {
 		my $asint = sub {
 			$_=shift;
 			return undef unless defined;
-			return int if (/^[0-9]+$/);
+			return int if (/^-?[0-9]+$/);
 			return undef;
 		};
 		my $nonempty = sub {
