@@ -397,6 +397,19 @@ sub apply_tree {
 				$needle = quotemeta($needle);
 				return $haystack =~ s/$needle/$$newneedle/;
 			},
+			
+			"abbr" => sub {
+				my ($ok, $str, $maxlen) = $getargs->('abbr',2,2,@_);
+				return undef unless $defcheck->($str);
+				return $str unless $defcheck->($maxlen = $asint->($maxlen)) && length($str) > $maxlen;
+				my @tok = split /\s+/, $funcs->{'trim'}->($str);
+				my $abbr = '';
+				for (@tok) {
+					my @chars = split //;
+					$abbr .= $chars[0];
+				}
+				return $abbr;
+			},
 		};
 	}
 	
