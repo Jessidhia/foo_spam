@@ -428,6 +428,42 @@ sub apply_tree {
 				return "" if $len == 0;
 				return sprintf("%0${len}d", $num);
 			},
+			
+			"add" => sub {
+				my ($ok, @ar) = $getargs->('add',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax += $_ } @ar;
+				return $ax;
+			},
+			"sub" => sub {
+				my ($ok, @ar) = $getargs->('sub',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax -= $_ } @ar;
+				return $ax;
+			},
+			"mul" => sub {
+				my ($ok, @ar) = $getargs->('mul',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax *= $_ } @ar;
+				return $ax;
+			},
+			"div" => sub {
+				my ($ok, @ar) = $getargs->('div',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax /= $_ } @ar;
+				return $ax;
+			},
+			"mod" => sub {
+				my ($ok, @ar) = $getargs->('mod',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax %= $_ } @ar;
+				return $ax;
+			},
 		};
 	}
 	
