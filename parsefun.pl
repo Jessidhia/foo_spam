@@ -225,6 +225,49 @@ sub apply_tree {
 				$all_var_ok = 1;
 				return "";
 			},
+			"meta_test" => sub {
+				my ($ok, @tags) = ($checkargs->('meta_test',1,-1,@_),@_);
+				for (@tags) {
+					return undef unless $defcheck->($_) && exists $info->{$_};
+				}
+				return 1;
+			},
+			"meta_num" => sub {
+				my ($ok, $tag) = ($checkargs->('meta_num',1,1,@_),@_);
+				return undef unless $defcheck->($tag) && exists $info->{$tag};
+				$tag = $info->{$tag};
+				return scalar @$tag if (ref $tag eq "ARRAY");
+				return 1;
+			},
+			"meta" => sub {
+				my ($ok, $tag, $n) = ($checkargs->('meta',1,2,@_),@_);
+				return undef unless $defcheck->($tag) && exists $info->{$tag};
+				return $funcs->{'meta_sep'}->($tag,', ') unless $defcheck->($n);
+				$tag = $info->{$tag};
+				if (ref $tag eq "ARRAY" && $n < scalar @$tag) {
+					return $tag->[$n];
+				}
+				return $tag if $n == 0;
+				return undef;
+			},
+			"meta_sep" => sub {
+				my ($ok, $tag, $sep, $lastsep) = ($checkargs->('meta_sep',2,3,@_),@_);
+				return undef unless $defcheck->($tag,$sep) && exists $info->{$tag};
+				$lastsep = $sep unless $defcheck->($lastsep);
+				$tag = $info->{$tag};
+				if (ref $tag eq "ARRAY") {
+					my $n = scalar(@$tag);
+					my $ret = $tag->[0];
+					my $last = $tag->[$n-1];
+					for (@$tag[1..$n-2]) {
+						$ret .= "$sep$_";
+					}
+					$ret .= "$lastsep$last" if $last;
+					return $ret;
+				}
+				return $tag;
+			},
+			
 			"put" => sub {
 				my ($ok, $key, $val) = $getargs->('put',2,2,@_);
 				return undef unless $ok && $nonempty->($key);
