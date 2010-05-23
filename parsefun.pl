@@ -319,6 +319,19 @@ sub apply_tree {
 				return undef unless $checkargs->('padcut_right',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
 				return $funcs->{'cut'}->($funcs->{'pad_right'}->($_[0],$len),$len);
 			},
+			
+			"insert" => sub {
+				my $pos;
+				return undef unless $checkargs->('insert',3,3,@_) && !(undef ~~ @_) && defined ($pos = $asint->($_[2]));
+				return substr($_[0], 0, $pos) . $_[1] . substr($_[0], $pos);
+			},
+			"replace" => sub {
+				return undef unless $checkargs->('replace',3,3,@_) && !(undef ~~ @_[0,2]);
+				return $_[0] unless $nonempty->($_[1]);
+				my $old = quotemeta($_[1]);
+				($_=$_[0]) =~ s/$old/$_[2]/;
+				return $_;
+			},
 		};
 	}
 	
