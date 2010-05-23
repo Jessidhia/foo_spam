@@ -464,6 +464,24 @@ sub apply_tree {
 				map { $ax %= $_ } @ar;
 				return $ax;
 			},
+			"max" => sub {
+				my ($ok, @ar) = $getargs->('max',2,-1,@_);
+				map { $_ = $asint->($_) } @ar;
+				my $ax = shift @ar;
+				for (@ar) {
+					$ax = $_ if defined $ax && $_ > $ax;
+				}
+				return $ax;
+			},
+			"min" => sub {
+				my ($ok, @ar) = $getargs->('min',2,-1,@_);
+				map { $_ = $asint->($_) } @ar;
+				my $ax = shift @ar;
+				for (@ar) {
+					$ax = $_ if defined $ax && $_ < $ax;
+				}
+				return $ax;
+			},
 		};
 	}
 	
