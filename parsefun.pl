@@ -294,7 +294,7 @@ sub apply_tree {
 			},
 			"pad_right" => sub {
 				my $len;
-				return undef unless $checkargs->('pad',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				return undef unless $checkargs->('pad_right',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
 				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
 				return $_[0] . ($c x ($len - length($_[0])));
 			},
