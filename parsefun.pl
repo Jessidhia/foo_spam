@@ -100,9 +100,9 @@ sub finalize_tree {
 					           || ( $_ =~ s/^,([^,]*)// ) ) {
 						my $data = (
 							$1 ? $1
-							    : (
+							    : ($1 eq "0"?"0":(
 								    substr( $_, 0, 1 ) eq "," ? ""
-								        :   ( @bt ? undef : "" ) )
+								        :   ( @bt ? undef : "" ) ))
 							   );
 						if ( defined($data) ) {
 							if (@tt) {
