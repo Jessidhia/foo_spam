@@ -245,6 +245,10 @@ sub apply_tree {
 				return exists $heap{$key} ? $heap{$key} : undef;
 			},
 			
+			"not" => sub {
+				my ($ok, $a) = $getargs->('not',1,1,@_);
+				$defcheck->($a) && return undef || return "";
+			},
 			"and" => sub {
 				return undef unless $checkargs->('and',2,-1,@_);
 				for (@_) {
@@ -259,6 +263,13 @@ sub apply_tree {
 				}
 				return undef;
 			},
+			"xor" => sub {
+				my ($ok, $a, $b) = $getargs->('xor',2,2,@_);
+				($a, $b) = (defined $a, defined $b);
+				return "" if $ok && ($a && !$b) || (!$a && $b);
+				return undef;
+			},
+			
 			
 			"if" => sub {
 				return undef unless $checkargs->('if',2,3,@_);
