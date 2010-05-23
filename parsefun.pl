@@ -210,7 +210,7 @@ sub apply_tree {
 				return "";
 			},
 			"put" => sub {
-				return undef unless $checkargs('put',2,2,@_) && defined $_[0] && $_[0] ne '';
+				return undef unless $checkargs->('put',2,2,@_) && defined $_[0] && $_[0] ne '';
 				if (defined $_[1]) {
 					return $heap{$_[0]} = $_[1];
 				}
@@ -218,11 +218,11 @@ sub apply_tree {
 				return undef;
 			},
 			"puts" => sub {
-				return undef unless $checkargs('puts',2,2,@_);
+				return undef unless $checkargs->('puts',2,2,@_);
 				return defined $funcs->{"put"}->(@_) ? "" : undef;
 			},
 			"get" => sub {
-				return undef unless $checkargs('get',1,1,@_) && defined $_[0] && $_[0] ne '';
+				return undef unless $checkargs->('get',1,1,@_) && defined $_[0] && $_[0] ne '';
 				return exists $heap{$_[0]} ? $heap{$_[0]} : undef;
 			},
 			
