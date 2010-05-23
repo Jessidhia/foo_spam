@@ -281,6 +281,7 @@ sub apply_tree {
 				($_=shift) =~ /^\s*+(.*?)\s*+$/;
 				return $1;
 			},
+			
 			"cut" => sub {
 				my $len;
 				return undef unless $checkargs->('cut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
@@ -297,6 +298,16 @@ sub apply_tree {
 				return undef unless $checkargs->('pad_right',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
 				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
 				return $_[0] . ($c x ($len - length($_[0])));
+			},
+			"padcut" => sub {
+				my $len;
+				return undef unless $checkargs->('padcut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				return $funcs->{'cut'}->($funcs->{'pad'}->($_[0],$len),$len);
+			},
+			"padcut_right" => sub {
+				my $len;
+				return undef unless $checkargs->('padcut_right',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				return $funcs->{'cut'}->($funcs->{'pad_right'}->($_[0],$len),$len);
 			},
 		};
 	}
