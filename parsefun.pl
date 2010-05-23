@@ -23,8 +23,8 @@ sub prepare_tree {
 			my $a = $3;
 			if ( $a =~ /\x00/ ) {
 				{
-					$a =~ s/([^\x00]+)//;
-					push @lv, [ $1, -1 ];
+					$a =~ s/^([^\x00]*)//;
+					$1 && push @lv, [ $1, -1 ];
 					if ( $a =~ /^\x00/ ) {
 						push @lv, [ shift(@q), -2 ];
 					}
