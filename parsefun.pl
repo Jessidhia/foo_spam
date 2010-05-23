@@ -550,10 +550,48 @@ sub parse_format {
 	}
 	( $uq =~ /[\[\]%]/ )
 	    && die "Explodan on bad square brackets / variablan syntaxan after >>$`<<";
+	    
+	my $info = {
+		'foo_spam_comment' => 'Some sample data',
+		'codec' => 'FLAC',
+		'date' => '2004',
+		'state' => 'playing',
+		'directoryname' => 'Matroska',
+		'playback_time' => '00:47',
+		'track artist' => 'Lix',
+		'filesize' => '534484841',
+		'tracknumber' => '06',
+		'ispaused' => '0',
+		'title' => 'RC.Kishgal -Down Earth mix- V1.1',
+		'totaldiscs' => '1',
+		'bitrate' => '1129',
+		'filesize_natural' => '509.72MB',
+		'playback_time_seconds' => '47.20',
+		'album artist' => 'Levo Lution',
+		'_foobar2000_version' => 'foobar2000 v1.0.3',
+		'_path_raw' => 'file://H:/Music/Matroska/Levo Lution - 2004 PHOBOS.mka',
+		'foo_spam_version' => 'v0.8.3',
+		'version' => 'v1.0.3',
+		'player' => 'foobar2000',
+		'path' => 'H:/Music/Matroska/Levo Lution - 2004 PHOBOS.mka',
+		'track number' => '06',
+		'length_seconds' => '371',
+		'totaltracks' => 13,
+		'artist' => 'Lix',
+		'album' => 'PHOBOS',
+		'length' => '06:11',
+		'playback_time_remaining' => '05:23',
+		'isplaying' => '1',
+		'filename' => 'Levo Lution - 2004 PHOBOS',
+		'discnumber' => '1',
+		'playback_time_remaining_seconds' => '323.8',
+		'filename_ext' => 'Levo Lution - 2004 PHOBOS.mka'
+	};
+
 
 	my $pretree = prepare_tree( $uq, @q );
 	my $tree = finalize_tree( create_tree( "foo_base", $pretree ) );
-	return apply_tree( { var => "" }, $tree );
+	return apply_tree( $info, $tree );
 }
 
 exit unless $ARGV[0];
