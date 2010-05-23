@@ -325,7 +325,7 @@ sub parse_format {
 
 	# First we separate quoted parts for some quick and dirty work over [] and '', but that's a secret because the goat is around
 	my ( $k, @uq, @q ) = (1);
-	while ( $string =~ /((?:^[^']*|[^']+|'')+)/ig ) {
+	while ( $string =~ /((?:''|^[^']*|[^']+)+)/ig ) {
 		( $k ) && ( $' =~ /^'\s*$/ ) && die "Error parsing at the end: missing quote";
 		( $k = !$k )
 		    && ( ( substr( $`, -1, 1 ) . substr( $', 0, 1 ) eq "''" ) # Yet another ' for pastebin (plz2fix yourself)
