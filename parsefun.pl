@@ -135,6 +135,7 @@ sub apply_tree {
 		my @has_var;
 		my @var_ok;
 		my $lex_lvl = 0; # Wastes position 0 on $test but prevents error on foo_variable if outside a $test
+		my %heap;
 		
 		my $exec = sub {
 			$_ = shift;
@@ -208,6 +209,23 @@ sub apply_tree {
 				$all_var_ok = 1;
 				return "";
 			},
+			"put" => sub {
+				return undef unless $checkargs('put',2,2,@_) && defined $_[0] && $_[0] ne '';
+				if (defined $_[1]) {
+					return $heap{$_[0]} = $_[1];
+				}
+				delete $heap{$_[0]};
+				return undef;
+			},
+			"puts" => sub {
+				return undef unless $checkargs('puts',2,2,@_);
+				return defined $funcs->{"put"}->(@_) ? "" : undef;
+			},
+			"get" => sub {
+				return undef unless $checkargs('get',1,1,@_) && defined $_[0] && $_[0] ne '';
+				return exists $heap{$_[0]} ? $heap{$_[0]} : undef;
+			},
+			
 			"and" => sub {
 				return undef unless $checkargs->('and',2,-1,@_);
 				for (@_) {
@@ -222,6 +240,7 @@ sub apply_tree {
 				}
 				return undef;
 			},
+			
 			"if" => sub {
 				return undef unless $checkargs->('if',2,3,@_);
 				defined $test->(shift @_) && return $exec->(shift @_);
