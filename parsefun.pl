@@ -281,6 +281,11 @@ sub apply_tree {
 				($_=shift) =~ /^\s*+(.*?)\s*+$/;
 				return $1;
 			},
+			"cut" => sub {
+				my $len;
+				return undef unless $checkargs->('cut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				return substr $_[0], 0, $len;
+			},
 		};
 	}
 	
