@@ -588,11 +588,13 @@ sub parse_format {
 		'filename_ext' => 'Levo Lution - 2004 PHOBOS.mka'
 	};
 
-
 	my $pretree = prepare_tree( $uq, @q );
 	my $tree = finalize_tree( create_tree( "foo_base", $pretree ) );
 	return apply_tree( $info, $tree );
 }
-
-exit unless $ARGV[0];
-say parse_format( $ARGV[0] );
+my $teststr = <<'EOF';
+%player%[ (%version%)]: [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']' [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %foo_spam_comment%]
+EOF
+chomp $teststr;
+$ARGV[0] and $teststr = $ARGV[0];
+say parse_format( $teststr );
