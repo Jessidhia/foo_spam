@@ -207,7 +207,7 @@ sub apply_tree {
 		};
 		
 		$funcs = {
-			"foo_base"  => sub { return join "", $apply->(@_) },
+			"foo_base"  => sub { return join "", map { $_='?' unless defined; $_ } $apply->(@_) },
 			"foo_quote" => sub { return join "", @_ },
 			"foo_variable" => sub {
 				$_ = shift;
@@ -217,7 +217,7 @@ sub apply_tree {
 					return $info->{$_};
 				}
 				$all_var_ok = 0;
-				return '?';
+				return undef;
 			},
 			"foo_conditional" => sub {
 				my @res = $apply->(@_);
