@@ -35,6 +35,10 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.9   - Completely new parser engine, by DeathWolf. Ported all implemented functions to the new parser, added the $meta family of functions.
+#         Detects that a tag has multiple components by checking for ', '; anything more special can't be easily done through foo_controlserver.
+#         Made the else clauses on $if, $ifgreater, $iflonger and $ifequal optional. Made all math functions variadic, made most boolean functions variadic.
+#         Rename foo_spam's %comment% to %foo_spam_comment% since it is not equivalent to foobar2000's %comment%.
 # 0.8.3 - Better %filesize_natural% calculation
 # 0.8.2 - Added support for several file information tags. The Fields option on foobar2000 was changed, support for the old one will be dropped after two major bumps.
 # 0.8.1 - Added --command and /foo_control. Added %foo_spam_version% tag.
@@ -85,7 +89,7 @@ our $telnet         = undef;
 our $default_format = <<'EOF';
 %player%[ (%version%)]:
  [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
- [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %comment%]
+ [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %foo_spam_comment%]
 EOF
 $default_format =~ s/\R//g;
 our $format = $default_format;
@@ -160,11 +164,6 @@ sub info_clean {
 		$info->{'state'} = "stopped";
 	}
 
-	if (defined $info->{'artist'}) {
-		$info->{'album artist'} = $info->{'artist'} unless defined $info->{'album artist'};
-		$info->{'track artist'} = $info->{'artist'} if $info->{'album artist'} ne $info->{'artist'};
-	}
-
 	if ( defined $info->{'length'} && !defined $info->{'length_seconds'} ) {
 		my ( $h, $m, $s ) = split( /\:/, $info->{'length'} );
 		if ( defined $s ) {
@@ -220,7 +219,10 @@ sub info_clean {
 	
 	for (keys %$info) {
 		$info->{$_} = decode("UTF-8", $info->{$_}) unless utf8::is_utf8($info->{$_});
+		my @spl = split ', ', $info->{$_};
+		$info->{$_} = \@spl if (@spl > 1);
 	}
+
 	return $info;
 }
 
@@ -512,415 +514,22 @@ sub get_track_info {
 	}
 }
 
-sub parse_format {
-	my ( $format, $info, $sublevel ) = @_;
-	$sublevel = 0 if not defined $sublevel;
-
-	my $output = "";
-
-	$format =~ s/\R//g;    # ignore line breaks
-	my @chars = split( //, $format );
-
-	# Language Definition
-
-	# lowercasestring      <== should be parsed as a tag name, makes the expression fail if such tag is not defined
-	# []                   <== brackets allow the parsing inside them to fail
-	# $func(arg1,arg2,...) <== function call (see parse_subfunction for details)
-	# ''                   <== string literal (ignores all parsing)
-	# \(character)         <== literal character
-
-	# Bracket Nesting
-
-	# A bracket returns a defined value only if it has at least one tag or at least one of its embedded brackets return true.
-
-	my @tokens   = ();
-	my $tagcount = 0;
-	my $fail     = 0;
-
-	my $literal = 0;
-	my $sub     = 0;
-	my $func    = 0;
-	my $tagmode = 0;
-	my $str     = "";
-	my $ignore  = 0;
-
-	for ( my $i = 0; $i < @chars; $i++ )
-	{    # 1st Pass (Lexical analysis, push into @tokens)
-		if ($literal) {    # If on literal mode
-			$str .= $chars[$i]
-			    ; # Simply copy everything as-is until an unescaped ' is found
-			if ( $chars[$i] eq "'" ) {
-				push @tokens, $str;
-				$str     = "";
-				$literal = 0;
-			} elsif ( not defined( $chars[ $i + 1 ] ) )
-			{ # This means we ended the string with an uneven number of unescaped 's
-				warn "Malformed: mismatched ': $str";
-				return undef;
-			}
-		} elsif ($sub) {    # If on subexpression mode
-			$str .= $chars[$i]
-			    ;    # Copy everything as-is until an unescaped ] is found
-			if ( $chars[$i] eq "'" ) {
-				$ignore = !$ignore;
-			} elsif ( $chars[$i] eq "[" )
-			{ # We must copy any sub-subexpressions inside this sub-expression for recursive evaluation
-				++$sub unless $ignore;
-			} elsif ( $chars[$i] eq "]" and !$ignore and --$sub == 0 ) {
-				push @tokens, $str;
-				$str = "";
-			} elsif ( not defined( $chars[ $i + 1 ] ) )
-			{    # This means we ended the string without $sub being 0
-				warn "Malformed: mismatched [: $str";
-				return undef;
-			}
-		} elsif ($tagmode) {    # If on tag mode
-			$str .= $chars[$i]
-			    ;    # Copy tags as-is until any % character is found
-			if ( $chars[$i] eq '%' ) {
-				push @tokens, $str;
-				$str     = "";
-				$tagmode = 0;
-			} elsif ( not defined( $chars[ $i + 1 ] ) ) {
-				warn "Malformed: mismatched %: $str";
-				return undef;
-			}
-		} elsif ($func) {    # If on function mode
-			$str
-			    .= $chars[$i]; # Copy everything until an unescaped ) is found
-			if ( $chars[$i] eq "'" ) {
-				$ignore = !$ignore;
-			} elsif ( $chars[$i] eq "(" ) {
-				$func++ unless $ignore;
-			} elsif ( $chars[$i] eq ")" and !$ignore and --$func <= 1 ) {
-				push @tokens, $str;
-				$str  = "";
-				$func = 0;
-			} elsif ( not defined( $chars[ $i + 1 ] ) ) {
-				warn "Malformed: mismatched (: $str";
-				return undef;
-			}
-		} else {
-			if ( $chars[$i] eq "'" ) {
-				push @tokens, "$str" if $str ne "";   # Found an opening quote
-				$str     = $chars[$i];
-				$literal = 1;                         # Enter literal mode
-			} elsif ( $chars[$i] eq "[" ) {
-				push @tokens, "$str"
-				    if $str ne "";    # Found a subexpression opener
-				$str = $chars[$i];
-				$sub = 1;             # Enter subexpression mode
-			} elsif ( $chars[$i] eq "\$" ) {
-				push @tokens, "$str" if $str ne "";
-				$str  = $chars[$i];
-				$func = 1;            # Enter subfunction mode
-			} elsif ( $chars[$i] eq "%" ) {
-				push @tokens, "$str" if $str ne "";    # Found a tag name
-				$str     = $chars[$i];
-				$tagmode = 1;                          # Enter tag mode
-			} else {
-				$str .= $chars[$i];                    # Copy as a literal
-			}
-		}
-	}
-
-	push @tokens, "$str"
-	    if $str ne ""
-	;    # Make sure whatever is left from parsing is added as a literal
-
-	foreach my $token (@tokens) {    # 2nd Pass, execute tokens
-		if ( $token =~ /^'(.*)'$/ or $token =~ /^([^['%\$].*)$/ )
-		{                            # If the token is a literal, then
-			$output
-			    .= $token eq "''"
-			    ? "'"
-			    : $1;    # '' means a literal ', otherwise literal contents
-		} elsif ( $token =~ /^%(.*)%$/ ) {    # If this is a tag
-			$token = $1;
-			return undef unless defined( $info->{$token} );
-			$output .= $info->{$token};       # Copy value to output
-		} elsif ( $token =~ /^\[(.*)\]$/ ) { # If the token is a subexpression
-			$token = $1;
-			my $recurse
-			    = parse_format( $token, $info, $sublevel + 1 );    # Recurse
-			$output .= $recurse if defined($recurse);
-		} elsif ( $token =~ /^\$/ ) {    # If the token is a subfunction
-			my $res = parse_subfunction( $token, $info, $sublevel );
-			return undef unless defined($res);
-			$output .= $res;
-		} else {
-			warn "Parsing error: $token";
-			return undef;
-		}
-	}
-
-	return $output;
-}
-
-sub build_output {
-	my ( $format, $info, $sublevel ) = @_;
-	$sublevel = 0 if not defined $sublevel;
-
-	return parse_format( $format, $info, $sublevel );
-}
-
-sub parse_subfunction {
-	my ( $function, $info, $sublevel ) = @_;
-
-	$function =~ /^\$(.*?)\((.*)\)$/;
-
-	my $func = $1;
-
-	my @rawargs = split( //, $2 );
-	my @args = ();
-
-	my $ignore = 0;
-	my $str    = "";
-	for ( my $i = 0; $i < @rawargs; $i++ ) {
-		if ( $rawargs[$i] eq "'" ) {
-			$ignore = !$ignore;
-		} elsif ( $rawargs[$i] eq "," ) {
-			unless ($ignore) {
-				push @args, $str;
-				$str = "";
-				++$i;
-			}
-		}
-		$str .= $rawargs[$i] if defined( $rawargs[$i] );
-	}
-	push @args, $str;
-
-	for ( my $i = 0; $i < @args; $i++ ) {
-		$args[$i] = parse_format( $args[$i], $info, $sublevel + 1 );
-	}
-
-	if ( $func eq "len" ) {
-		return defined $args[0] ? length( $args[0] ) : undef;
-	} elsif ( $func eq "repeat" ) {
-		return ( defined $args[0] and defined $args[1] )
-		    ? ( $args[0] x $args[1] )
-		    : undef;
-	} elsif ( $func eq "trim" ) {
-		my ($str) = @args;
-		return undef unless defined $str;
-		$str =~ /^\s*+(.*?)\s*+$/;
-		return $1;
-	} elsif ( $func eq "put" or $func eq "puts" ) {
-		my ( $var, $val ) = @args;
-		return undef unless ( defined $var and defined $val );
-		$heap{$var} = $val;
-		return ( $func eq "put" ) ? $val : "";
-	} elsif ( $func eq "get" ) {
-		my ($var) = @args;
-		return undef unless defined $var;
-		return exists $heap{$var} ? $heap{$var} : "";
-	} elsif ( $func eq "pad"
-		or $func eq "pad_right"
-		or $func eq "left"
-		or $func eq "cut"
-		or $func eq "padcut"
-		or $func eq "padcut_right" ) {
-		my ( $str, $maxlen, $char ) = @args;
-		return undef unless ( defined $str and $maxlen );
-
-		my $pad = (
-			       $func eq "pad"
-			    or $func eq "pad_right"
-			    or $func eq "padcut"
-			    or $func eq "padcut_right"
-		);
-		my $cut = (
-			       $func eq "left"
-			    or $func eq "cut"
-			    or $func eq "padcut"
-			    or $func eq "padcut_right"
-		);
-
-		if ($cut) {
-			$str = substr( $str, 0, $maxlen );
-		}
-		if ($pad) {
-			$char = " " unless defined $char and $char ne "";
-			$char = substr( $char, 0, 1 );
-			$str .= ( $char x ( $maxlen - length($str) ) );
-		}
-		return $str;
-	} elsif ( $func eq "right" ) {
-		my ( $str, $maxlen ) = @args;
-		return undef unless ( defined $str and defined $maxlen );
-		return substr( $str, -$maxlen );
-	} elsif ( $func eq "insert" or $func eq "replace" ) {
-		my ( $haystack, $needle, $pos ) = @args;
-		return undef
-		    unless ( defined($haystack)
-			and defined($needle)
-			and defined($pos) );
-		if ( $func eq "insert" ) {
-			return
-			      substr( $haystack, 0, $pos ) 
-			    . $needle
-			    . substr( $haystack, $pos );
-		}
-		$needle = quotemeta($needle);
-		$haystack =~ s/$needle/$pos/g;
-		return $haystack;
-	} elsif ( $func eq "if" or $func eq "if2" ) {
-		my ( $test, $iftrue, $iffalse );
-		if ( $func eq "if" ) {
-			( $test, $iftrue, $iffalse ) = @args;
-		} else {
-			( $test, $iffalse ) = @args;
-			$iftrue = $test;
-		}
-
-		if ($test) {
-			return $iftrue;
-		} else {
-			return $iffalse;
-		}
-	} elsif ( $func eq "if3" ) {
-		foreach (@args) {
-			return $_ if $_;
-		}
-		return undef;
-	} elsif ( $func eq "greater" ) {
-		my ( $arg1, $arg2 ) = @args;
-		return undef unless ( defined($arg1) or defined($arg2) );
-		return $arg1 unless defined $arg2;
-		return $arg2 unless defined $arg1;
-		return $arg1 if $arg1 >= $arg2;
-		return $arg2;
-	} elsif ( $func eq "longer" ) {
-		my ( $arg1, $arg2 ) = @args;
-		return undef unless ( defined($arg1) or defined($arg2) );
-		return $arg1 unless defined $arg2;
-		return $arg2 unless defined $arg1;
-		return $arg1 if length($arg1) >= length($arg2);
-		return $arg2;
-	} elsif ( $func eq "longest" ) {
-		return undef unless scalar(@args);
-		my $longest = $_[0];
-		foreach (@args) {
-			next unless defined;
-			$longest = $_ if length($_) > length($longest);
-		}
-		return $longest;
-	} elsif ( $func eq "ifgreater"
-		or $func eq "ifequal"
-		or $func eq "iflonger" ) {
-		my ( $arg1, $arg2, $iftrue, $iffalse ) = @args;
-
-		unless ( defined($arg2) ) {
-			return $iftrue if ( defined($arg1) );
-			return $iffalse;
-		}
-		return $iffalse unless ( defined($arg1) );
-
-		if ( $func eq "iflonger" ) {
-			return defined($arg1) ? $iftrue : $iffalse
-			    unless ( defined($arg1) and defined($arg2) );
-			return $iftrue if ( length($arg1) > length( " " x $arg2 ) );
-		} elsif ( $func eq "ifequal" ) {
-
-			# Any of the args may not be comparable, return false in that case
-			return $iftrue if ( defined($arg1) and defined($arg2) );
-			return $iffalse unless ( defined($arg1) and defined($arg2) );
-			eval { return $iftrue if $arg1 == $arg2 };
-		} else {    # ifgreater
-			return defined($arg1) ? $iftrue : $iffalse
-			    unless ( defined($arg1) and defined($arg2) );
-			eval { return $iftrue if $arg1 > $arg2 };
-		}
-		return $iffalse;
-	} elsif ( $func eq "abbr" ) {
-		my ( $arg1, $arg2 ) = ( 0, 0 );
-		$arg1 = $args[0];
-		$arg2 = $args[1] if ( defined( $args[1] ) );
-		return undef unless ( defined $arg1 and $arg2 >= 0 );
-
-		if ( length($arg1) > $arg2 ) {
-			my $abbr = "";
-			my @tokens = split( /\s+/, $arg1 );
-			foreach my $token (@tokens) {
-				my @chars = split( //, $token );
-				$abbr .= $chars[0];
-			}
-			return $abbr;
-		}
-		return $arg1;
-	} elsif ( $func eq "num" ) {
-		my ( $arg1, $arg2 ) = @args;
-		return undef unless ( defined($arg1) and $arg2 > 0 );
-		return sprintf( "%0${arg2}d", $arg1 );
-	} elsif ( $func =~ /^(add|sub|mul|div|mod|max|min)$/ ) {
-		my ( $arg1, $arg2 ) = @args;
-		return undef unless ( defined($arg1) and defined($arg2) );
-
-		# Make sure both are numbers. Better way to do this?
-		return undef unless eval { $arg1 != $arg2 or $arg1 == $arg2 };
-		return $arg1 + $arg2 if ( $func eq "add" );
-		return $arg1 - $arg2 if ( $func eq "sub" );
-		return $arg1*$arg2   if ( $func eq "mul" );
-		return $arg1/$arg2   if ( $func eq "div" );
-		return $arg1 % $arg2 if ( $func eq "mod" );
-		return ( $arg1 >= $arg2 ? $arg1 : $arg2 ) if ( $func eq "max" );
-		return ( $arg1 < $arg2  ? $arg1 : $arg2 ) if ( $func eq "min" );
-	} elsif ( $func =~ /^(and|or|xor|not)$/ ) {
-		my ( $arg1, $arg2 ) = @args;
-		$arg1 = 0 unless defined $arg1;
-		$arg2 = 0 unless defined $arg2;
-
-		# Need to give explicit returns to avoid eating on parse_format
-
-		return ( $arg1 ? 0 : 1 ) if ( $func eq "not" );
-		return ( ( $arg1 && $arg2 ) ? 1 : 0 ) if ( $func eq "and" );
-		return ( ( $arg1 || $arg2 ) ? 1 : 0 ) if ( $func eq "or" );
-		return ( ( $arg1 && !$arg2 ) ? 1 : ( ( !$arg1 && $arg2 ) ? 1 : 0 ) )
-		    if ( $func eq "xor" );
-	} elsif ( $func eq "strcmp" or $func eq "stricmp" ) {
-		my ( $arg1, $arg2 ) = @args;
-		return undef unless ( defined($arg1) and defined($arg2) );
-		return ( ( lc($arg1) eq lc($arg2) ) ? 1 : 0 )
-		    if ( $func eq "stricmp" );
-		return ( ( $arg1 eq $arg2 ) ? 1 : 0 );
-	} elsif ( $func eq "caps" ) {
-		my ($arg1) = @args;
-		return undef unless defined $arg1;
-		$arg1 =~ s/\b(\S)(\S*)\b/@{[uc($1)]}@{[lc($2)]}/g;
-		return $arg1;
-	} elsif ( $func eq "caps2" ) {
-		my ($arg1) = @args;
-		return undef unless defined $arg1;
-		$arg1 =~ s/\b(\S)/@{[uc($1)]}/g;
-		return $arg1;
-	} elsif ( $func eq "lower" or $func eq "upper" ) {
-		my ($arg1) = @args;
-		return undef unless defined $arg1;
-		return lc($arg1) if $func eq "lower";
-		return uc($arg1);
-	} elsif ( $func eq "fix_eol" ) {
-		my ( $meta, $repl ) = @args;
-		$repl = " (...)" unless $repl;
-		return undef unless defined($meta);
-		$meta =~ s/\010?\013.*//;
-		return $meta;
-	}
-
-	warn "Unknown or unimplemented function: $function";
-	return undef;
-}
-
 sub get_np_string {
 	my $info = get_track_info();
-	$info->{comment} = $_[0] if $_[0];
+	my $tree = parse_format($format);
+	$info->{foo_spam_comment} = $_[0] if $_[0];
 	if ( defined($info) ) {
-		return build_output( $format, $info );
+		return apply_tree( $info, $tree );
 	}
 	return undef;
 }
 
+################
+# HELP SECTION #
+################
+
 sub get_help_string {
-	my $help = <<EOF
+	my $help = <<EOF;
 Required Plugin: foo_controlserver
 URL: http://www.hydrogenaudio.org/forums/index.php?showtopic=38114
 Required settings: Control Server tab:
@@ -935,12 +544,11 @@ NOTE: the script only works with either the default or this custom Fields line.
 
 This script can also work via SSH tunneling, by using -R 3333:localhost:3333.
 EOF
-	    ;
 	return $help;
 }
 
 sub get_intro_string {
-	my $intro = <<EOF
+	my $intro = <<EOF;
 \002----------------------------------------------------------------------------------------------------
 \002foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 \002Version $VERSION - Created by Kovensky \(irc.rizon.net #shameimaru\)
@@ -963,12 +571,11 @@ For now, /foo_control only supports foobar2000.
 foobar2000 and banshee have specific implementations. Other players will use the MPRIS interface.
 \002----------------------------------------------------------------------------------------------------
 EOF
-	    ;
 	return $intro;
 }
 
 sub get_foo_format_help_string {
-	my $help = <<EOF
+	my $help = <<EOF;
 Format Definition
 Example: %artist% - [%album% - ]%title%
 
@@ -989,12 +596,11 @@ you use an unsupported client.
 
 Default: $default_format
 EOF
-	    ;
 	return $help;
 }
 
 sub get_taglist_string {
-	my $list = <<EOF
+	my $list = <<EOF;
 List of available tags (refer to foobar2000's documentation for their meanings):
  - %isplaying%, %ispaused%, %_foobar2000_version%
  - %playback_time%, %playback_time_remaining%, %length% (plus the _seconds variants)
@@ -1007,12 +613,11 @@ foo_spam sets %foo_spam_version% with its own version.
 foo_spam also sets %player% and %version%, which refer to the used player and its version.
 The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
 EOF
-	    ;
 	return $list;
 }
 
 sub get_funclist_string {
-	my $list = <<'EOF'
+	my $list = <<'EOF';
 List of available functions (refer to foobar2000's documentation for their meanings):
  - $if(X,Y,Z), $if2(X,Y), $if3(X,Y,Z,...), $ifgreater(A,B,C,D), $iflonger(A,B,C,D), $ifequal(A,B,C,D)
  - $and(X,Y), $or(X,Y), $xor(X,Y), $not(X)
@@ -1025,9 +630,663 @@ List of available functions (refer to foobar2000's documentation for their meani
  - $add(X,Y), $sub(X,Y), $mul(X,Y), $div(X,Y), $mod(X,Y), $min(X,Y), $max(X,Y)
  - $put(name,text), $puts(name,text), $get(name)
 EOF
-	    ;
 	return $list;
 }
+
+################
+# PARSING CODE #
+################
+
+sub unquoted_fixan { $_ = pop @_; s/''/'/g; s/%([^%]+)%/\$foo_variable($1)/ig; return $_; } # ' to make pastebin happy
+sub quoted_fixan { $_ = pop @_; s/''/'/g; return $_ } # ' again
+
+sub prepare_tree {
+	my ( $level, $tp, @q, @lv ) = ( 0, @_ );
+	while ( $tp =~ /\$([A-Za-z0-9_-]+)\(|(\))|([^)\$]*)/ig ) {
+		if ($1) {
+			push @lv, [ $1, $level++ ];
+		} elsif ($2) {
+			push @lv,
+			    [
+				    ( $level > 0 ? "function end" : $2 ),
+				    ( $level > 0 ? --$level       : -2 )
+				   ];
+		} elsif ($3) {
+			my $a = $3;
+			if ( $a =~ /\x00/ ) {
+				{
+					$a =~ s/^([^\x00]*)//;
+					$1 && push @lv, [ $1, -1 ];
+					if ( $a =~ /^\x00/ ) {
+						push @lv, [ shift(@q), -2 ];
+					}
+					( $a =~ s/\x00// ) && redo
+				}
+			} else {
+				push @lv, [ $a, -1 ];
+			}
+		}
+	}
+	( $level > 0 ) && die "Error, missing closing parenthesis";
+	return \@lv;
+}
+
+sub create_tree {
+	my ( $f, $tree ) = (@_);
+	my @results = ($f);
+	{
+		$_ = shift @{$tree};
+		if ( $_->[1] < 0 ) {
+			if ( defined( $_->[0] ) ) {
+				if ( $_->[1] eq -1 ) {
+					push @results, $_->[0];
+				} else {
+					push @results, [ "foo_quote", $_->[0] ];
+				}
+			}
+		} elsif ( $_ > 0 ) {
+			my @subtree;
+			my $last;
+			my $level = $_->[1];
+			my $name  = $_->[0];
+			{
+				my $s = shift @{$tree};
+				if ( $s->[1] eq $level ) {
+					$last = 1;
+				}
+				if ( !$last ) {
+					push @subtree, $s;
+					@{$tree} && redo || die "Internal Error, unmatched tree";
+				}
+			}
+			push @results, create_tree( $name, \@subtree );
+		}
+		@{$tree} && redo;
+	}
+	return \@results;
+}
+
+sub finalize_tree {
+	my ($tree)     = (@_);
+	my @bt         = @{$tree};
+	my $base       = shift @bt;
+	my @returntree = ($base);
+	my @tt;
+	while ( $_ = shift @bt ) {
+		if ( $base eq "foo_base" ) {
+			if ( ref($_) eq "ARRAY" ) {
+				push @returntree, finalize_tree($_);
+			} else {
+				push @returntree, $_;
+			}
+		} else {
+			if ( ref($_) eq "ARRAY" ) {
+				push @tt, finalize_tree($_);
+			} else {
+				if ( $_ =~ /,/ ) {
+					if ( $_ =~ /^,/ ) {
+						push @returntree, @tt;
+						@tt = ();
+					}
+					while (( ( @returntree eq 1 ) && ( $_ =~ s/^([^,]+)// ) )
+					           || ( $_ =~ s/^,([^,]*)// ) ) {
+						my $data = (
+							$1 ? $1
+							    : ($1 eq "0"?"0":(
+								    substr( $_, 0, 1 ) eq "," ? ""
+								        :   ( @bt ? undef : "" ) ))
+							   );
+						if ( defined($data) ) {
+							if (@tt) {
+								push @returntree, @tt;
+								@tt = ();
+								push @tt, $data;
+							} else {
+								push @tt, $data;
+							}
+						}
+					}
+				} else {
+					push @tt, $_;
+				}
+			}
+		}
+	}
+	(@tt) && push @returntree, @tt;
+	return \@returntree;
+}
+
+sub apply_tree {
+	my ( $info, $tr ) = (@_);
+
+	state $funcs;
+	state $apply;
+
+	unless ($funcs) {
+		my $all_var_ok;
+		my @has_var;
+		my @var_ok;
+		my $lex_lvl = 0; # Wastes position 0 on $test but prevents error on foo_variable if outside a $test
+		my %heap;
+		
+		my $exec = sub {
+			$_ = shift;
+			if ( ref $_ eq "ARRAY" ) {
+				my $fn = shift @{$_};
+				unless ($fn) {
+					warn "Unknown function '$fn'";
+					return "";
+				}
+				return $funcs->{$fn}->( @{$_} );
+			} else {
+				return $_;
+			}
+		};
+		$apply = sub {
+			my @res;
+			$all_var_ok = 1;
+			for (@_) {
+				push @res, $exec->($_);
+			}
+			return @res;
+		};
+
+		my $checkargs = sub {
+			my ($name, $minc, $maxc, @ar) = @_;
+			my $ok = 1;
+			$ok = $ok && @ar >= $minc if $minc >= 0;
+			unless ($ok) {
+				warn "Too few arguments for \$$name (expected at least $minc, found ". scalar(@ar) .")";
+				return undef;
+			}
+			$ok = $ok && @ar <= $maxc if $maxc >= 0;
+			unless ($ok) {
+				warn "Too many arguments for \$$name (expected at most $maxc, found ". scalar(@ar) .")";
+				return undef;
+			}
+			return 1;
+		};
+		my $test = sub {
+			++$lex_lvl;
+			($var_ok[$lex_lvl], $has_var[$lex_lvl]) = (0, 0);
+			my $res = $exec->(shift @_);
+			my $var_chk = $has_var[$lex_lvl] && $var_ok[$lex_lvl] || !$has_var[$lex_lvl];
+			delete $has_var[$lex_lvl--];
+			return $res if (defined $res && $var_chk);
+			return undef;
+		};
+		my $asint = sub {
+			$_=shift;
+			return undef unless defined;
+			return int if (/^-?[0-9]+$/);
+			return undef;
+		};
+		my $nonempty = sub {
+			$_=shift;
+			return undef unless defined && $_ ne '';
+			return $_;
+		};
+		my $getargs = sub {
+			my ($name, $minc, $maxc, @ar) = @_;
+			return (undef,undef) unless $checkargs->($name, $minc, $maxc, @ar);
+			return (1, map { $exec->($_) } @ar);
+		};
+		my $defcheck = sub {
+			for (@_) {
+				return undef unless defined;
+			}
+			return 1;
+		};
+		
+		# ORDERED LIST OF IMPLEMENTED FUNCTIONS
+		# foo_base, foo_quote, foo_variable, foo_conditional
+		# meta_test, meta_num, meta, meta_sep
+		# put, puts, get
+		# not, and, or, xor, strcmp, stricmp
+		# if, if2, if3, ifgreater, iflonger, ifequal
+		# len, greater, longer, longest
+		# repeat, trim
+		# cut, right, pad, pad_right, padcut, padcut_right
+		# insert, replace
+		# abbr, num
+		# add, sub, mul, div, mod
+		# max, min
+		# caps, caps2, lower, upper, fix_eol
+		
+		$funcs = {
+			# foo_base, foo_quote, foo_variable, foo_conditional
+			"foo_base"  => sub { return join "", map { $_='?' unless defined; $_ } $apply->(@_) },
+			"foo_quote" => sub { return join "", @_ },
+			"foo_variable" => sub {
+				$_ = shift;
+				$has_var[$lex_lvl] = 1;
+				my $ret;
+				given ($_) {
+					when ("artist") {
+						$ret = $exec->(['if3',
+							['meta','artist'],['meta','album artist'],
+							['meta','composer'],['meta','performer']]);
+					}
+					when ("album artist") {
+						$ret = $exec->(['if3',
+							['meta','album artist'],['meta','artist'],
+							['meta','composer'],['meta','performer']]);
+					}
+					when ("track artist") {
+						my $ta = $funcs->{"meta"}->('artist');
+						my $aa = $funcs->{"meta"}->('album artist');
+						if (defined $ta && defined $aa && $ta ne $aa) {
+							$ret = $ta;
+						} else {
+							$ret = undef;
+						}
+					}
+					default {
+						$ret = $funcs->{'meta'}->($_);
+					}
+				}
+				if ( defined $ret ) {
+					$var_ok[$lex_lvl] = 1;
+					return $ret;
+				}
+				$all_var_ok = 0;
+				return undef;
+			},
+			"foo_conditional" => sub {
+				my @res = $apply->(@_);
+				return join "", @res if $all_var_ok;
+				$all_var_ok = 1;
+				return "";
+			},
+			
+			# meta_test, meta_num, meta, meta_sep
+			"meta_test" => sub {
+				my ($ok, @tags) = ($checkargs->('meta_test',1,-1,@_),@_);
+				for (@tags) {
+					return undef unless $defcheck->($_) && exists $info->{$_};
+				}
+				return 1;
+			},
+			"meta_num" => sub {
+				my ($ok, $tag) = ($checkargs->('meta_num',1,1,@_),@_);
+				return undef unless $defcheck->($tag) && exists $info->{$tag};
+				$tag = $info->{$tag};
+				return scalar @$tag if (ref $tag eq "ARRAY");
+				return 1;
+			},
+			"meta" => sub {
+				my ($ok, $tag, $n) = ($checkargs->('meta',1,2,@_),@_);
+				return undef unless $defcheck->($tag) && exists $info->{$tag};
+				return $funcs->{'meta_sep'}->($tag,', ') unless $defcheck->($n);
+				$tag = $info->{$tag};
+				if (ref $tag eq "ARRAY" && $n < scalar @$tag) {
+					return $tag->[$n];
+				}
+				return $tag if $n == 0;
+				return undef;
+			},
+			"meta_sep" => sub {
+				my ($ok, $tag, $sep, $lastsep) = ($checkargs->('meta_sep',2,3,@_),@_);
+				return undef unless $defcheck->($tag,$sep) && exists $info->{$tag};
+				$lastsep = $sep unless $defcheck->($lastsep);
+				$tag = $info->{$tag};
+				if (ref $tag eq "ARRAY") {
+					my $n = scalar(@$tag);
+					my $ret = $tag->[0];
+					my $last = $tag->[$n-1];
+					for (@$tag[1..$n-2]) {
+						$ret .= "$sep$_";
+					}
+					$ret .= "$lastsep$last" if $last;
+					return $ret;
+				}
+				return $tag;
+			},
+			
+			# put, puts, get
+			"put" => sub {
+				my ($ok, $key, $val) = $getargs->('put',2,2,@_);
+				return undef unless $ok && $nonempty->($key);
+				if (defined $key) {
+					return $heap{$key} = $val;
+				}
+				delete $heap{$key};
+				return undef;
+			},
+			"puts" => sub {
+				my ($ok, @ar) = $getargs->('puts',2,2,@_);
+				return undef unless $ok;
+				return defined $funcs->{"put"}->(@ar) ? "" : undef;
+			},
+			"get" => sub {
+				my ($ok, $key) = $getargs->('get',1,1,@_);
+				return undef unless $ok && $nonempty->($key);
+				return exists $heap{$key} ? $heap{$key} : undef;
+			},
+			
+			# not, and, or, xor, strcmp, stricmp
+			"not" => sub {
+				my ($ok, $a) = $getargs->('not',1,1,@_);
+				$defcheck->($a) && return undef || return "";
+			},
+			"and" => sub {
+				return undef unless $checkargs->('and',2,-1,@_);
+				for (@_) {
+					defined $test->($_) || return undef;
+				}
+				return "";
+			},
+			"or" => sub {
+				return undef unless $checkargs->('or',2,-1,@_);
+				for (@_) {
+					defined $test->($_) && return "";
+				}
+				return undef;
+			},
+			"xor" => sub {
+				my ($ok, $a, $b) = $getargs->('xor',2,2,@_);
+				($a, $b) = (defined $a, defined $b);
+				return "" if $ok && ($a && !$b) || (!$a && $b);
+				return undef;
+			},
+			"strcmp" => sub {
+				my ($ok, $a, $b) = $getargs->('strcmp',2,2,@_);
+				return "" if $ok && $defcheck->($a, $b) && $a eq $b;
+				return undef;
+			},
+			"stricmp" => sub {
+				my ($ok, $a, $b) = $getargs->('stricmp',2,2,@_);
+				return "" if $ok && $defcheck->($a, $b) && lc($a) eq lc($b);
+				return undef;
+			},
+			
+			# if, if2, if3, ifgreater, iflonger, ifequal
+			"if" => sub {
+				return undef unless $checkargs->('if',2,3,@_);
+				defined $test->(shift @_) && return $exec->(shift @_);
+				return $exec->($_[1]) if defined $_[1];
+				return undef;
+			},
+			"if2" => sub {
+				return undef unless $checkargs->('if2',2,2,@_);
+				my $cond = shift @_;
+				if (defined (my $res = $test->($cond))) {
+					return $res;
+				}
+				return $exec->(shift @_);
+			},
+			"if3" => sub {
+				return undef unless $checkargs->('if3',1,-1,@_);
+				for (@_) {
+					if (defined (my $res = $test->($_))) {
+						return $res;
+					}
+				}
+				return undef;
+			},
+			"ifgreater" => sub {
+				my ($ok, $a, $b, $then, $else) = ($checkargs->('ifgreater',3,4,@_), @_);
+				map { $_ = $exec->($_) } ($a, $b);
+				$a = -1 unless $defcheck->($a = $asint->($a));
+				$b = -1 unless $defcheck->($b = $asint->($b));
+				return $exec->($then) if ($a > $b);
+				return $exec->($else);
+			},
+			"iflonger" => sub {
+				my ($ok, $str, $len, $then, $else) = ($checkargs->('ifgreater',3,4,@_), @_);
+				map { $_ = $exec->($_) } ($str, $len);
+				return $exec->($else) unless $defcheck->($str);
+				$len = -1 unless $defcheck->($len = $asint->($len));
+				return $exec->($then) if (length($str) > $len);
+				return $exec->($else);
+			},
+			"ifequal" => sub {
+				my ($ok, $a, $b, $then, $else) = ($checkargs->('ifequal',3,4,@_), @_);
+				map { $_ = $exec->($_) } ($a, $b);
+				$a = 0 unless $defcheck->($a);
+				$b = 0 unless $defcheck->($b);
+				my ($ia, $ib) = ($asint->($a), $asint->($b));
+				if ($defcheck->($ia, $ib)) {
+					return $exec->($then) if $ia == $ib;
+					return $exec->($else);
+				}
+				return $exec->($then) if $a eq $b;
+				return $exec->($else);
+			},
+			
+			# len, greater, longer, longest
+			"len" => sub {
+				(my($ok), $_) = $getargs->('len',1,1,@_);
+				return undef unless $defcheck->($ok, $_);
+				return length;
+			},
+			"greater" => sub {
+				my ($ok, $a, $b) = $getargs->('greater',2,2,@_);
+				return undef unless $defcheck->($ok, $a = $asint->($a), $b = $asint->($b));
+				return $a >= $b ? $a : $b;
+			},
+			"longer" => sub {
+				my ($ok, $a, $b) = $getargs->('longer',2,2,@_);
+				return undef unless $defcheck->($ok, $nonempty->($a), $nonempty->($b));
+				return length($a) >= length($b) ? $a : $b;
+			},
+			"longest" => sub {
+				my ($ok, @ar) = $getargs->('longest',2,-1,@_);
+				return undef unless $ok;
+				my $longest = undef;
+				for (@ar) {
+					$longest = $_ if (!defined $longest || (defined && length > length $longest));
+				}
+				return $longest;
+			},
+			
+			# repeat, trim
+			"repeat" => sub {
+				my ($ok, $str, $c) = $getargs->('repeat',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $c = $asint->($c));
+				return $c ? ($str x $c) : "";
+			},
+			"trim" => sub {
+				my ($ok, $str) = $getargs->('trim',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ /^\s*+(.*?)\s*+$/;
+				return $1;
+			},
+			
+			# cut, right, pad, pad_right, padcut, padcut_right
+			"cut" => sub {
+				my ($ok, $str, $len) = $getargs->('cut',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return substr $str, 0, $len;
+			},
+			"right" => sub {
+				my ($ok, $str, $len) = $getargs->('right',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return substr $str, -$len;
+			},
+			"pad" => sub {
+				my ($ok, $str, $len, $c) = $getargs->('pad',2,3,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				$c = $nonempty->($c) ? substr $c, 0, 1 : " ";
+				return ($c x ($len - length($str))) . $str;
+			},
+			"pad_right" => sub {
+				my ($ok, $str, $len, $c) = $getargs->('pad_right',2,3,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				$c = $nonempty->($c) ? substr $c, 0, 1 : " ";
+				return $_[0] . ($c x ($len - length($_[0])));
+			},
+			"padcut" => sub {
+				my ($ok, $str, $len) = $getargs->('padcut',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return $funcs->{'cut'}->($funcs->{'pad'}->($_[0],$len),$len);
+			},
+			"padcut_right" => sub {
+				my ($ok, $str, $len) = $getargs->('padcut_right',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return $funcs->{'cut'}->($funcs->{'pad_right'}->($_[0],$len),$len);
+			},
+			
+			# insert, replace
+			"insert" => sub {
+				my ($ok, $haystack, $needle, $pos) = $getargs->('insert',3,3,@_);
+				return undef unless $defcheck->($ok, $haystack, $needle, $pos = $asint->($pos));
+				return substr($haystack, 0, $pos) . $needle . substr($_[0], $haystack);
+			},
+			"replace" => sub {
+				my ($ok, $haystack, $needle, $newneedle) = $getargs->('insert',3,3,@_);
+				return undef unless $defcheck->($ok, $haystack);
+				return $haystack unless $nonempty->($needle);
+				return undef unless defined $newneedle;
+				$needle = quotemeta($needle);
+				return $haystack =~ s/$needle/$$newneedle/;
+			},
+			
+			# abbr, num
+			"abbr" => sub {
+				my ($ok, $str, $maxlen) = $getargs->('abbr',2,2,@_);
+				return undef unless $defcheck->($str);
+				return $str unless $defcheck->($maxlen = $asint->($maxlen)) && length($str) > $maxlen;
+				my @tok = split /\s+/, $funcs->{'trim'}->($str);
+				my $abbr = '';
+				for (@tok) {
+					my @chars = split //;
+					$abbr .= $chars[0];
+				}
+				return $abbr;
+			},
+			"num" => sub {
+				my ($ok, $num, $len) = $getargs->('num',2,2,@_);
+				return undef unless $defcheck->($num = $asint->($num), $len = $asint->($len));
+				return undef if $len < 0;
+				return "" if $len == 0;
+				return sprintf("%0${len}d", $num);
+			},
+			
+			# add, sub, mul, div, mod
+			"add" => sub {
+				my ($ok, @ar) = $getargs->('add',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax += $_ } @ar;
+				return $ax;
+			},
+			"sub" => sub {
+				my ($ok, @ar) = $getargs->('sub',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax -= $_ } @ar;
+				return $ax;
+			},
+			"mul" => sub {
+				my ($ok, @ar) = $getargs->('mul',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax *= $_ } @ar;
+				return $ax;
+			},
+			"div" => sub {
+				my ($ok, @ar) = $getargs->('div',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax /= $_ } @ar;
+				return $ax;
+			},
+			"mod" => sub {
+				my ($ok, @ar) = $getargs->('mod',2,-1,@_);
+				return undef if grep { !defined } map { $asint->($_) } @ar;
+				my $ax = shift @ar;
+				map { $ax %= $_ } @ar;
+				return $ax;
+			},
+			
+			# max, min
+			"max" => sub {
+				my ($ok, @ar) = $getargs->('max',2,-1,@_);
+				map { $_ = $asint->($_) } @ar;
+				my $ax = shift @ar;
+				for (@ar) {
+					$ax = $_ if defined $ax && $_ > $ax;
+				}
+				return $ax;
+			},
+			"min" => sub {
+				my ($ok, @ar) = $getargs->('min',2,-1,@_);
+				map { $_ = $asint->($_) } @ar;
+				my $ax = shift @ar;
+				for (@ar) {
+					$ax = $_ if defined $ax && $_ < $ax;
+				}
+				return $ax;
+			},
+			
+			# caps, caps2, lower, upper, fix_eol
+			"caps" => sub {
+				my ($ok, $str) = $getargs->('caps',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ s/\b(\S)(\S*)\b/@{[uc($1)]}@{[lc($2)]}/g;
+				return $str;
+			},
+			"caps2" => sub {
+				my ($ok, $str) = $getargs->('caps2',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ s/\b(\S)/@{[uc($1)]}/g;
+				return $str;
+			},
+			"lower" => sub {
+				my ($ok, $str) = $getargs->('lower',1,1,@_);
+				return lc($str) if $defcheck->($ok, $str);
+				return undef;
+			},
+			"upper" => sub {
+				my ($ok, $str) = $getargs->('upper',1,1,@_);
+				return uc($str) if $defcheck->($ok, $str);
+				return undef;
+			},
+			"fix_eol" => sub {
+				my ($ok, $meta, $repl) = $getargs->('fix_eol',1,2,@_);
+				return undef unless $defcheck->($ok, $meta);
+				$repl = " (...)" unless $defcheck->($repl);
+				$meta =~ s/\010?\013.*//;
+				return "$meta$repl";
+			},
+		};
+	}
+
+	my($res) = $apply->([@{$tr}]);
+	return $res;
+}
+
+sub parse_format {
+	my ($string) = (@_);
+
+	# First we separate quoted parts for some quick and dirty work over [] and '', but that's a secret because the goat is around
+	my ( $k, @uq, @q ) = (1);
+	while ( $string =~ /((?:''|^[^']*|[^']+)+)/ig ) {
+		( $k ) && ( $' =~ /^'\s*$/ ) && die "Error parsing at the end: missing quote";
+		( $k = !$k )
+		    && ( ( substr( $`, -1, 1 ) . substr( $', 0, 1 ) eq "''" ) # Yet another ' for pastebin (plz2fix yourself)
+		             && ( push @q, quoted_fixan($1) )
+		                 || die "Error parsing after >>$1<<: missing quote" )
+		        && next;
+		push @uq, unquoted_fixan($1);
+	}
+	push@uq,"";
+
+	# Time to fixan space shuttles!( []'ed elements )
+	my $uq = join "\x00", @uq;
+	while ( $uq =~ s/\[([^\[\]]*)\]/\$foo_conditional($1)/ig ) {
+	}
+	( $uq =~ /[\[\]%]/ )
+	    && die "Explodan on bad square brackets / variablan syntaxan after >>$`<<";
+
+	my $pretree = prepare_tree( $uq, @q );
+	return finalize_tree( create_tree( "foo_base", $pretree ) );
+}
+
+###############
+# IRC and CLI #
+###############
 
 if (HAVE_IRSSI) {
 	*print_now_playing = sub {
