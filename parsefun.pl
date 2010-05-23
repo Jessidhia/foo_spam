@@ -294,6 +294,21 @@ sub apply_tree {
 				return undef unless $defcheck->($ok, $_);
 				return length;
 			},
+			"longer" => sub {
+				my ($ok, $a, $b) = $getargs->('longer',2,2,@_);
+				return undef unless $defcheck->($ok, $nonempty->($a), $nonempty->($b));
+				return length($a) >= length($b) ? $a : $b;
+			},
+			"longest" => sub {
+				my ($ok, @ar) = $getargs->('longest',2,-1,@_);
+				return undef unless $ok;
+				my $longest = undef;
+				for (@ar) {
+					$longest = $_ if (!defined $longest || (defined && length > length $longest));
+				}
+				return $longest;
+			},
+			
 			"repeat" => sub {
 				my ($ok, $str, $c) = $getargs->('repeat',2,2,@_);
 				return undef unless $defcheck->($ok, $str, $c = $asint->($c));
