@@ -269,6 +269,16 @@ sub apply_tree {
 				return "" if $ok && ($a && !$b) || (!$a && $b);
 				return undef;
 			},
+			"strcmp" => sub {
+				my ($ok, $a, $b) = $getargs->('strcmp',2,2,@_);
+				return "" if $ok && $defcheck->($a, $b) && $a eq $b;
+				return undef;
+			},
+			"stricmp" => sub {
+				my ($ok, $a, $b) = $getargs->('stricmp',2,2,@_);
+				return "" if $ok && $defcheck->($a, $b) && lc($a) eq lc($b);
+				return undef;
+			},
 			
 			
 			"if" => sub {
