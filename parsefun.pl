@@ -286,6 +286,18 @@ sub apply_tree {
 				return undef unless $checkargs->('cut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
 				return substr $_[0], 0, $len;
 			},
+			"pad" => sub {
+				my $len;
+				return undef unless $checkargs->('pad',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
+				return ($c x ($len - length($_[0]))) . $_[0];
+			},
+			"pad_right" => sub {
+				my $len;
+				return undef unless $checkargs->('pad',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				my $c = defined $_[2] && $_[2] ne '' ? substr $_[2], 0, 1 : " ";
+				return $_[0] . ($c x ($len - length($_[0])));
+			},
 		};
 	}
 	
