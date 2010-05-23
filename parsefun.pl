@@ -194,6 +194,17 @@ sub apply_tree {
 			return undef unless defined && $_ ne '';
 			return $_;
 		};
+		my $getargs = sub {
+			my ($name, $minc, $maxc, @ar) = @_;
+			return (undef,undef) unless $checkargs->($name, $minc, $maxc, @ar);
+			return (1, map { $exec->($_) } @ar);
+		};
+		my $defcheck = sub {
+			for (@_) {
+				return undef unless defined;
+			}
+			return 1;
+		};
 		
 		$funcs = {
 			"foo_base"  => sub { return join "", $apply->(@_) },
@@ -215,20 +226,23 @@ sub apply_tree {
 				return "";
 			},
 			"put" => sub {
-				return undef unless $checkargs->('put',2,2,@_) && $nonempty->($_[0]);
-				if (defined $_[1]) {
-					return $heap{$_[0]} = $_[1];
+				my ($ok, $key, $val) = $getargs->('put',2,2,@_);
+				return undef unless $ok && $nonempty->($key);
+				if (defined $key) {
+					return $heap{$key} = $val;
 				}
-				delete $heap{$_[0]};
+				delete $heap{$key};
 				return undef;
 			},
 			"puts" => sub {
-				return undef unless $checkargs->('puts',2,2,@_);
-				return defined $funcs->{"put"}->(@_) ? "" : undef;
+				my ($ok, @ar) = $getargs->('puts',2,2,@_);
+				return undef unless $ok;
+				return defined $funcs->{"put"}->(@ar) ? "" : undef;
 			},
 			"get" => sub {
-				return undef unless $checkargs->('get',1,1,@_) && $nonempty->($_[0]);
-				return exists $heap{$_[0]} ? $heap{$_[0]} : undef;
+				my ($ok, $key) = $getargs->('get',1,1,@_);
+				return undef unless $ok && $nonempty->($key);
+				return exists $heap{$key} ? $heap{$key} : undef;
 			},
 			
 			"and" => sub {
@@ -271,66 +285,67 @@ sub apply_tree {
 			},
 
 			"len" => sub {
-				return undef unless $checkargs->('len',1,1,@_);
-				$_=shift;
-				return undef unless defined $_;
-				return length($_);
+				(my($ok), $_) = $getargs->('len',1,1,@_);
+				return undef unless $defcheck->($ok, $_);
+				return length;
 			},
 			"repeat" => sub {
-				my $c;
-				return undef unless $checkargs->('len',2,2,@_) && defined $_[0] && defined ($c = $asint->($_[1]));
-				return $c ? ($_[0] x $c) : "";
+				my ($ok, $str, $c) = $getargs->('repeat',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $c = $asint->($c));
+				return $c ? ($str x $c) : "";
 			},
 			"trim" => sub {
-				return undef unless $checkargs->('trim',1,1,@_) && defined $_[0];
-				($_=shift) =~ /^\s*+(.*?)\s*+$/;
+				my ($ok, $str) = $getargs->('trim',1,1,@_);
+				return undef unless $defcheck->($ok, $str);
+				$str =~ /^\s*+(.*?)\s*+$/;
 				return $1;
 			},
 			
 			"cut" => sub {
-				my $len;
-				return undef unless $checkargs->('cut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				return substr $_[0], 0, $len;
+				my ($ok, $str, $len) = $getargs->('cut',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return substr $str, 0, $len;
 			},
 			"right" => sub {
-				my $len;
-				return undef unless $checkargs->('right',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				return substr $_[0], -$len;
+				my ($ok, $str, $len) = $getargs->('right',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				return substr $str, -$len;
 			},
 			"pad" => sub {
-				my $len;
-				return undef unless $checkargs->('pad',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				my $c = $nonempty->($_[2]) ? substr $_[2], 0, 1 : " ";
-				return ($c x ($len - length($_[0]))) . $_[0];
+				my ($ok, $str, $len, $c) = $getargs->('pad',2,3,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				$c = $nonempty->($c) ? substr $c, 0, 1 : " ";
+				return ($c x ($len - length($str))) . $str;
 			},
 			"pad_right" => sub {
-				my $len;
-				return undef unless $checkargs->('pad_right',2,3,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
-				my $c = $nonempty->($_[2]) ? substr $_[2], 0, 1 : " ";
+				my ($ok, $str, $len, $c) = $getargs->('pad_right',2,3,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
+				$c = $nonempty->($c) ? substr $c, 0, 1 : " ";
 				return $_[0] . ($c x ($len - length($_[0])));
 			},
 			"padcut" => sub {
-				my $len;
-				return undef unless $checkargs->('padcut',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				my ($ok, $str, $len) = $getargs->('padcut',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
 				return $funcs->{'cut'}->($funcs->{'pad'}->($_[0],$len),$len);
 			},
 			"padcut_right" => sub {
-				my $len;
-				return undef unless $checkargs->('padcut_right',2,2,@_) && defined $_[0] && defined ($len = $asint->($_[1]));
+				my ($ok, $str, $len) = $getargs->('padcut_right',2,2,@_);
+				return undef unless $defcheck->($ok, $str, $len = $asint->($len));
 				return $funcs->{'cut'}->($funcs->{'pad_right'}->($_[0],$len),$len);
 			},
 			
 			"insert" => sub {
-				my $pos;
-				return undef unless $checkargs->('insert',3,3,@_) && !(undef ~~ @_) && defined ($pos = $asint->($_[2]));
-				return substr($_[0], 0, $pos) . $_[1] . substr($_[0], $pos);
+				my ($ok, $haystack, $needle, $pos) = $getargs->('insert',3,3,@_);
+				return undef unless $defcheck->($ok, $haystack, $needle, $pos = $asint->($pos));
+				return substr($haystack, 0, $pos) . $needle . substr($_[0], $haystack);
 			},
 			"replace" => sub {
-				return undef unless $checkargs->('replace',3,3,@_) && !(undef ~~ @_[0,2]);
-				return $_[0] unless $nonempty->($_[1]);
-				my $old = quotemeta($_[1]);
-				($_=$_[0]) =~ s/$old/$_[2]/;
-				return $_;
+				my ($ok, $haystack, $needle, $newneedle) = $getargs->('insert',3,3,@_);
+				return undef unless $defcheck->($ok, $haystack);
+				return $haystack unless $nonempty->($needle);
+				return undef unless defined $newneedle;
+				$needle = quotemeta($needle);
+				return $haystack =~ s/$needle/$$newneedle/;
 			},
 		};
 	}
