@@ -84,7 +84,7 @@ our $telnet         = undef;
 our $default_format = <<'EOF';
 %player%[ (%version%)]:
  [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
- [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %comment%]
+ [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %foo_spam_comment%]
 EOF
 $default_format =~ s/\R//g;
 our $format = $default_format;
@@ -911,7 +911,7 @@ sub parse_subfunction {
 
 sub get_np_string {
 	my $info = get_track_info();
-	$info->{comment} = $_[0] if $_[0];
+	$info->{foo_spam_comment} = $_[0] if $_[0];
 	if ( defined($info) ) {
 		return build_output( $format, $info );
 	}
@@ -1004,7 +1004,7 @@ List of available tags (refer to foobar2000's documentation for their meanings):
  - %filesize%, %filesize_natural%
 foo_spam sets %foo_spam_version% with its own version.
 foo_spam also sets %player% and %version%, which refer to the used player and its version.
-The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
+The %foo_spam_comment% tag contains all arguments that the user gives to /aud in a single string.
 EOF
 	    ;
 	return $list;
@@ -1290,7 +1290,7 @@ Supports command line, X-Chat, irssi and weechat.
 Options:
     --player=PLAYER    Any of the supported players
     --format=FORMAT    The string template in foobar2000's title format syntax.
-    --comment=COMMENT  The value of \%comment%
+    --comment=COMMENT  The value of \%foo_spam_comment%
     --command=COMMAND  A command to send to foobar2000. One of 'play', 'pause', 'prev', 'next', 'stop'. Foobar2000 only.
 EOF
 		            print $_;
