@@ -1031,6 +1031,10 @@ EOF
 if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $server, $witem ) = @_;
+		
+		$format = Irssi::settings_get_str("foo_format");
+		$player = lc(Irssi::settings_get_str("foo_player"));
+
 		my $str = get_np_string( decode( "UTF-8", $data ) );
 		if ( defined($str) ) {
             if ($witem
@@ -1070,9 +1074,6 @@ if (HAVE_IRSSI) {
 
 	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
 	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
-	$format = Irssi::settings_get_str("foo_format");
-	$player = lc(Irssi::settings_get_str("foo_player"));
-
 	Irssi::command_bind( 'aud',         'print_now_playing' );
 	Irssi::command_bind( 'np',          'print_now_playing' );
 	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
