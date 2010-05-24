@@ -17,8 +17,6 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-package foo_spam;
-
 use v5.10.1;
 use common::sense;
 use feature ':5.10';
@@ -88,7 +86,7 @@ our $telnet         = undef;
 our $default_format = <<'EOF';
 %player%[ (%version%)]:
  [%album artist% ]'['[%date% ][%album%][ #[%discnumber%.]%tracknumber%[/[%totaldiscs%.]%totaltracks%]]']'
- [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %comment%]
+ [%track artist% - ]%title% '['%playback_time%[/%length%]']'[ %bitrate%kbps][ %filesize_natural%][ %codec%[ %codec_profile%]][ <-- %foo_spam_comment%]
 EOF
 $default_format =~ s/\R//g;
 our $format = $default_format;
@@ -530,7 +528,7 @@ sub build_output {
 
 sub get_np_string {
 	my $info = get_track_info();
-	$info->{comment} = $_[0] if $_[0];
+	$info->{foo_spam_comment} = $_[0] if $_[0];
 	if ( defined($info) ) {
 		return build_output( $format, $info );
 	}
@@ -623,7 +621,7 @@ List of available tags (refer to foobar2000's documentation for their meanings):
  - %filesize%, %filesize_natural%
 foo_spam sets %foo_spam_version% with its own version.
 foo_spam also sets %player% and %version%, which refer to the used player and its version.
-The %comment% tag is set by foo_spam itself and it contains all arguments that the user gives to /aud in a single string.
+The %foo_spam_comment% tag contains all arguments that the user gives to /aud in a single string.
 EOF
 	    ;
 	return $list;
@@ -650,6 +648,10 @@ EOF
 if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $server, $witem ) = @_;
+		
+		$format = Irssi::settings_get_str("foo_format");
+		$player = lc(Irssi::settings_get_str("foo_player"));
+
 		my $str = get_np_string( decode( "UTF-8", $data ) );
 		if ( defined($str) ) {
             if ($witem
@@ -689,9 +691,6 @@ if (HAVE_IRSSI) {
 
 	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
 	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
-	$format = Irssi::settings_get_str("foo_format");
-	$player = lc(Irssi::settings_get_str("foo_player"));
-
 	Irssi::command_bind( 'aud',         'print_now_playing' );
 	Irssi::command_bind( 'np',          'print_now_playing' );
 	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
@@ -908,7 +907,7 @@ Supports command line, X-Chat, irssi and weechat.
 Options:
     --player=PLAYER    Any of the supported players
     --format=FORMAT    The string template in foobar2000's title format syntax.
-    --comment=COMMENT  The value of \%comment%
+    --comment=COMMENT  The value of \%foo_spam_comment%
     --command=COMMAND  A command to send to foobar2000. One of 'play', 'pause', 'prev', 'next', 'stop'. Foobar2000 only.
 EOF
 		            print $_;
