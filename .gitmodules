@@ -1,0 +1,3 @@
+[submodule "Parse-TitleSyntax"]
+	path = Parse-TitleSyntax
+	url = git://github.com/Kovensky/Parse-TitleSyntax.git
