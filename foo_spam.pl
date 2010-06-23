@@ -1242,7 +1242,7 @@ if (HAVE_IRSSI) {
 		weechat::config_set_plugin( "format", $default_format );
 	}
 	unless ( weechat::config_is_set_plugin("player") ) {
-		weechat::config_set_plugin( "player", $default_format );
+		weechat::config_set_plugin( "player", "foobar2000" );
 	}
 
 	weechat::hook_command( 'np', 'alias to /aud',
