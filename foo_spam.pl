@@ -17,12 +17,14 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use v5.10.1;
-use common::sense;
+use v5.10.0;
+use utf8;
+use strict;
 use feature ':5.10';
-use version 0.77;
+use warnings;
 
-our $VERSION  = qv("v0.9.1");
+our $VERSION = v0.9.2;
+
 my %info = (
 	author      => 'Kovensky',
 	contact     => '#shameimaru@irc.rizon.net',
@@ -33,6 +35,7 @@ my %info = (
 );
 
 # ChangeLog:
+# 0.9.2 - Fixed compatibility with perl 5.12, remove dependency on common::sense. Allow it to run on perl v5.10.0.
 # 0.9.1 - Reverted 0.9.0, it broke everything.
 # 0.8.3 - Better %filesize_natural% calculation
 # 0.8.2 - Added support for several file information tags. The Fields option on foobar2000 was changed, support for the old one will be dropped after two major bumps.
