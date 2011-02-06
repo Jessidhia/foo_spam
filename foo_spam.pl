@@ -91,6 +91,8 @@ our $default_format = <<'EOF';
 EOF
 $default_format =~ s/\R//g;
 our $format = $default_format;
+our $hostname = "127.0.0.1";
+our $hostport = 3333;
 our %heap;
 
 our $settings_file = undef;    # Only used by Xchat
@@ -98,9 +100,9 @@ our $settings_file = undef;    # Only used by Xchat
 sub open_telnet {
 	eval { require Net::Telnet; 1 } or ( warn "Can't find Net::Telnet" and return undef );
 	$telnet
-	    = new Net::Telnet( Port => 3333, Timeout => 10, Errmode => 'return' )
+	    = new Net::Telnet( Port => $hostport, Timeout => 10, Errmode => 'return' )
 	    if not defined($telnet);
-	$telnet_open = $telnet->open("localhost");
+	$telnet_open = $telnet->open($hostname);
 	unless ($telnet_open) {
 		irc_print(
 			"Error connecting to foobar2000! Make sure fb2k is running.");
@@ -1286,6 +1288,8 @@ if (HAVE_IRSSI) {
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
 	            'command=s' => \$command,
+	            'host=s' => \$hostname,
+	            'port=s' => \$hostport,
 	            'help' => sub {
 		            $_ = <<EOF;
 foo_spam $VERSION - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
@@ -1295,6 +1299,8 @@ Options:
     --format=FORMAT    The string template in foobar2000's title format syntax.
     --comment=COMMENT  The value of \%foo_spam_comment%
     --command=COMMAND  A command to send to foobar2000. One of 'play', 'pause', 'prev', 'next', 'stop'. Foobar2000 only.
+    --host=ADDRESS     The address of the computer running foobar2000. Default is localhost. Foobar2000 only.
+    --port=PORT        The port number foobar2000 is listening at. Default is 3333. Foobar2000 only.
 EOF
 		            print $_;
 		            exit;
