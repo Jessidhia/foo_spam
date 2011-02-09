@@ -1039,15 +1039,13 @@ if (HAVE_IRSSI) {
 		
 		$format = Irssi::settings_get_str("foo_format");
 		$player = lc(Irssi::settings_get_str("foo_player"));
+		$hostname = Irssi::settings_get_str("foo_host");
+		$hostport = Irssi::setings_get_str("foo_port");
 
 		my $str = get_np_string( decode( "UTF-8", $data ) );
-		if ( defined($str) ) {
-            if ($witem
-				&& (   $witem->{type} eq "CHANNEL"
-					|| $witem->{type} eq "QUERY" )
-			    ) {
-				$witem->command( encode_utf8("me $str") );
-			}
+		if ((defined($str)) && ($witem) && 
+				($witem->{'type'} ~~ ['CHANNEL', 'QUERY'])) {
+			$witem->command( encode_utf8("me $str") );
 		}
 	};
 
@@ -1079,6 +1077,8 @@ if (HAVE_IRSSI) {
 
 	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
 	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
+	Irssi::settings_add_str( "foo_spam", "foo_host", $hostname );
+	Irssi::settings_add_str( "foo_spam", "foo_port", $hostport );
 	Irssi::command_bind( 'aud',         'print_now_playing' );
 	Irssi::command_bind( 'np',          'print_now_playing' );
 	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
@@ -1104,49 +1104,62 @@ if (HAVE_IRSSI) {
 		Xchat::print(@_);
 	};
 
-	*set_foo_format = sub {
-		if ( defined( $_[0][1] ) ) {
-			open( $settings_file, ">",
-				Xchat::get_info('xchatdir') . "/foo_spam.conf" );
-			if ( $_[0][1] eq "default" ) {
-				$format = $default_format;
-			} else {
-				$format = $_[1][1];
-			}
-			Xchat::print("Changed format to $format\n");
-			if ( defined($settings_file) ) {
-				print $settings_file "player=$player\n";
-				print $settings_file "format=$format\n";
-				close($settings_file);
-			} else {
-				Xchat::print("Failed to save settings! Error: $!");
-			}
-		} else {
-			Xchat::print("Current format: $format\n");
+  *set_foo_settings = sub {
+		my $setting = shift;
+		my $value = shift;
+		my $ref;
+		given ($setting) {
+			when ('player')   { $ref = \$player; }
+			when ('format')   { $ref = \$format; }
+			when ('hostname') { $ref = \$hostname; }
+			when ('port')     { $ref = \$hostport; }
 		}
+		if (not defined $ref) {
+			Xchat::print("Unknown setting: $setting.\n");
+			return;
+		}
+		if (not defined $value) {
+			Xchat::print("Current $setting: $$ref\n");
+			return;
+		}
+		if (($setting eq 'format') && ($value eq 'default')) { $format = $default_format; }
+		else { $$ref = $value; }
+		Xchat::print("Changed $setting to $$ref\n");
+		if (open( $settings_file, ">", Xchat::get_info('xchatdir') . "/foo_spam.conf" )) {
+			print $settings_file "player=$player\n";
+			print $settings_file "format=$format\n";
+			print $settings_file "hostname=$hostname\n";
+			print $settings_file "port=$hostport\n";
+			close($settings_file);
+		}
+		else {
+			Xchat::print("Failed to save settings! Error: $!\n");
+		}
+  };
+
+	*set_foo_format = sub {
+		set_foo_settings('format', $_[1][1]);
 		return Xchat::EAT_ALL();
 	};
 	if ( defined(*set_foo_format) ) { }    # Silence a warning
-	
+
 	*set_foo_player = sub {
-		if ( defined( $_[0][1] ) ) {
-			open( $settings_file, ">",
-				Xchat::get_info('xchatdir') . "/foo_spam.conf" );
-			$player = lc($_[0][1]);
-			Xchat::print("Changed player to $player\n");
-			if ( defined($settings_file) ) {
-				print $settings_file "player=$player\n";
-				print $settings_file "format=$format\n";
-				close($settings_file);
-			} else {
-				Xchat::print("Failed to save settings! Error: $!");
-			}
-		} else {
-			Xchat::print("Current player: $player\n");
-		}
+		set_foo_settings('player', $_[0][1]);
 		return Xchat::EAT_ALL();
 	};
 	if ( defined(*set_foo_player) ) { }    # Silence a warning
+
+	*set_foo_port = sub {
+		set_foo_settings('port', $_[0][1]);
+		return Xchat::EAT_ALL();
+	};
+	if ( defined(*set_foo_port) ) { }      # Silence a warning
+
+	*set_foo_hostname = sub {
+		set_foo_settings('hostname', $_[0][1]);
+		return Xchat::EAT_ALL();
+	};
+	if ( defined(*set_foo_hostname) ) { }  # Silence a warning
 
 	*print_foo_format_help = sub {
 		Xchat::print( get_foo_format_help_string() );
@@ -1163,24 +1176,18 @@ if (HAVE_IRSSI) {
 		return Xchat::EAT_ALL();
 	};
 
-    if ( open (
-			$settings_file, "<",
-			Xchat::get_info('xchatdir') . "/foo_spam.conf"
-		) ) {
-	    foreach (<$settings_file>) {
-		    chomp;
-		    given ($_) {
-			    when (/^format=(.*)/) {
-				    $format = $1;
-			    }
-			    when (/^player=(.*)/) {
-				    $player = lc($1);
-			    }
-			    default {
-				    $format = $_ if $_;
-			    }
-		    }
-	    }
+	if ( open($settings_file, "<",
+			Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
+		foreach (<$settings_file>) {
+			chomp;
+			given ($_) {
+				when (/^format=(.*)/)   { $format   = $1; }
+				when (/^player=(.*)/)   { $player   = lc($1); }
+				when (/^hostname=(.*)/) { $hostname = $1; }
+				when (/^port=(.*)/)     { $hostport = $1; }
+				default {                 $format = $_ if $_; }
+			}
+		}
 		close($settings_file);
 	}
 
@@ -1198,6 +1205,10 @@ if (HAVE_IRSSI) {
 		{ help => "displays or changes the current format string" } );
 	Xchat::hook_command( "set_foo_player", "set_foo_player",
 		{ help => "displays or changes the used player" } );
+	Xchat::hook_command( "set_foo_port", "set_foo_port",
+		{ help => "displays or changes the port to connect to" } );
+	Xchat::hook_command( "set_foo_hostname", "set_foo_hostname",
+		{ help => "displays or changes the hostname to connect to" } );
 	Xchat::hook_command( "foo_control", sub { send_command($_[0][1]); return Xchat::EAT_ALL(); },
 		{ help => "sends a command to foobar2000. One of play, pause, stop, next or prev." } );
 	Xchat::hook_command( "foo_format", "print_foo_format_help",
@@ -1209,8 +1220,10 @@ if (HAVE_IRSSI) {
 } elsif (HAVE_WEECH) {
 	*print_now_playing = sub {
 		my ( $data, $buffer, @args ) = @_;
-		$format = weechat::config_get_plugin("format");
-		$player = lc(weechat::config_get_plugin("player"));
+		$format   = weechat::config_get_plugin("format");
+		$player   = lc(weechat::config_get_plugin("player"));
+		$hostport = weechat::config_get_plugin("port");
+		$hostname = weechat::config_get_plugin("hostname");
 		my $str = get_np_string(
 			$args[0] ? decode( "UTF-8", join( ' ', @args ) ) : undef );
 		if ( defined($str) ) {
@@ -1248,6 +1261,12 @@ if (HAVE_IRSSI) {
 	}
 	unless ( weechat::config_is_set_plugin("player") ) {
 		weechat::config_set_plugin( "player", "foobar2000" );
+	}
+	unless ( weechat::config_is_set_plugin("port") ) {
+		weechat::config_set_plugin( "port", "3300" );
+	}
+	unless ( weechat::config_is_set_plugin("hostname") ) {
+		weechat::config_set_plugin( "hostname", "127.0.0.1" );
 	}
 
 	weechat::hook_command( 'np', 'alias to /aud',
