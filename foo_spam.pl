@@ -1043,7 +1043,7 @@ if (HAVE_IRSSI) {
 		$hostport = Irssi::setings_get_str("foo_port");
 
 		my $str = get_np_string( decode( "UTF-8", $data ) );
-		if ((defined($str)) && ($witem) && 
+		if ((defined($str)) && ($witem) &&
 				($witem->{'type'} ~~ ['CHANNEL', 'QUERY'])) {
 			$witem->command( encode_utf8("me $str") );
 		}
@@ -1104,7 +1104,7 @@ if (HAVE_IRSSI) {
 		Xchat::print(@_);
 	};
 
-  *set_foo_settings = sub {
+	*set_foo_settings = sub {
 		my $setting = shift;
 		my $value = shift;
 		my $ref;
@@ -1135,7 +1135,7 @@ if (HAVE_IRSSI) {
 		else {
 			Xchat::print("Failed to save settings! Error: $!\n");
 		}
-  };
+	};
 
 	*set_foo_format = sub {
 		set_foo_settings('format', $_[1][1]);
@@ -1176,9 +1176,8 @@ if (HAVE_IRSSI) {
 		return Xchat::EAT_ALL();
 	};
 
-	if ( open($settings_file, "<",
-			Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
-		foreach (<$settings_file>) {
+	if ( open($settings_file, "<", Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
+		for (<$settings_file>) {
 			chomp;
 			given ($_) {
 				when (/^format=(.*)/)   { $format   = $1; }
