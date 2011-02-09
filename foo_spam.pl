@@ -26,7 +26,7 @@ use warnings;
 our $VERSION = v0.9.2;
 
 my %info = (
-	author      => 'Kovensky',
+	author      => 'Kovensky, pink_mist',
 	contact     => '#shameimaru@irc.rizon.net',
 	url         => 'http://repo.or.cz/w/foo_spam.git',
 	name        => 'foo_spam',
