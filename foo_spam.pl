@@ -1040,7 +1040,7 @@ if (HAVE_IRSSI) {
 		$format = Irssi::settings_get_str("foo_format");
 		$player = lc(Irssi::settings_get_str("foo_player"));
 		$hostname = Irssi::settings_get_str("foo_host");
-		$hostport = Irssi::setings_get_str("foo_port");
+		$hostport = Irssi::settings_get_str("foo_port");
 
 		my $str = get_np_string( decode( "UTF-8", $data ) );
 		if ((defined($str)) && ($witem) &&
