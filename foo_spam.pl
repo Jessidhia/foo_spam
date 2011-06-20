@@ -22,8 +22,9 @@ use utf8;
 use strict;
 use feature ':5.10';
 use warnings;
+use version 0.77;
 
-our $VERSION = v0.9.2;
+our $VERSION = qv('v0.9.2');
 
 my %info = (
 	author      => 'Kovensky, pink_mist',
@@ -75,9 +76,9 @@ if (HAVE_IRSSI) {
 	our %IRSSI   = %info;
 }
 
-Xchat::register( $info{name}, $VERSION, $info{description}, \&close_telnet )
+Xchat::register( $info{name}, $VERSION->stringify, $info{description}, \&close_telnet )
     if HAVE_XCHAT;
-weechat::register( $info{name}, $info{author}, $VERSION, $info{license},
+weechat::register( $info{name}, $info{author}, $VERSION->stringify, $info{license},
 	$info{description}, 'close_telnet', 'UTF-8' )
     if HAVE_WEECH;
 
@@ -152,7 +153,7 @@ sub send_command {
 sub info_clean {
 	my $info = shift;
 
-	$info->{'foo_spam_version'} = $VERSION;
+	$info->{'foo_spam_version'} = $VERSION->stringify;
 
 	if ($info->{'isplaying'}) {
 		if ($info->{'ispaused'}) {
@@ -947,7 +948,7 @@ sub get_intro_string {
 	my $intro = <<EOF
 \002----------------------------------------------------------------------------------------------------
 \002foo_spam - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
-\002Version $VERSION - Created by Kovensky \(irc.rizon.net #shameimaru\)
+\002Version @{[$VERSION->stringify]} - Created by Kovensky \(irc.rizon.net #shameimaru\)
 This script requires Banshee or a properly configured foobar2000.
 Note that the script only works remotely with foobar2000.
 Run /foo_help for help setting foobar2000 up.
