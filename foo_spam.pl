@@ -185,7 +185,7 @@ sub info_clean {
 	if ($info->{'tracknumber'} || $info->{'track number'}) {
 		$info->{'track number'} = sprintf("%0". length(int($info->{'totaltracks'} ? $info->{'totaltracks'} : 0)) ."d", $info->{'tracknumber'} ? $info->{'tracknumber'} : $info->{'track number'});
 	}
-	
+
 	if ( $info->{'length_seconds'} and $info->{'playback_time_seconds'} ) {
 		$info->{'playback_time_remaining_seconds'}
 		    = $info->{'length_seconds'} - $info->{'playback_time_seconds'};
@@ -222,7 +222,7 @@ sub info_clean {
 	for (keys %$info) {
 		delete $info->{$_} unless defined $info->{$_} and $info->{$_} ne '';
 	}
-	
+
 	for (keys %$info) {
 		$info->{$_} = decode("UTF-8", $info->{$_}) unless utf8::is_utf8($info->{$_});
 	}
@@ -290,9 +290,9 @@ sub get_track_info_fb2k {
 		if ( $fields[20] ) { # New 0.8.2 format
 			$info->{'length_seconds'}      = $fields[14];
 			$info->{'_foobar2000_version'} = $fields[15];
-			
+
 			$info->{'codec_profile'} = $fields[16];
-			
+
 			$info->{'discnumber'} = $fields[17];
 			$info->{'totaldiscs'} = $fields[18];
 
@@ -302,11 +302,11 @@ sub get_track_info_fb2k {
 		} else {
 			$info->{'playback_time'} = $fields[14];
 			$info->{'length'}        = $fields[15];
-			
+
 			$info->{'_foobar2000_version'} = $fields[16];
-			
+
 			$info->{'codec_profile'} = $fields[17];
-			
+
 			$info->{'discnumber'} = $fields[18];
 			$info->{'totaldiscs'} = $fields[19];
 		}
@@ -328,7 +328,7 @@ sub get_track_info_fb2k {
 		my @path = split /\/+/, $info->{'_path_raw'};
 		$info->{'filename_ext'}  = $path[$#path];
 		$info->{'directoryname'} = $path[$#path-1];
-		
+
 		$info->{'filename'} = $info->{'filename_ext'};
 		$info->{'filename'} =~ s/(.*)\..*/$1/;
 		if ($path[0] eq 'file:') {
@@ -407,7 +407,7 @@ sub get_track_info_banshee {
 			}
 		}
 	}
-	
+
 	$info{'state'} = $bplayer->GetCurrentState;
 
 	$info{'player'} = "Banshee";
@@ -762,7 +762,7 @@ sub parse_subfunction {
 			and defined($pos) );
 		if ( $func eq "insert" ) {
 			return
-			      substr( $haystack, 0, $pos ) 
+			      substr( $haystack, 0, $pos )
 			    . $needle
 			    . substr( $haystack, $pos );
 		}
@@ -1037,7 +1037,7 @@ EOF
 if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $server, $witem ) = @_;
-		
+
 		$format = Irssi::settings_get_str("foo_format");
 		$player = lc(Irssi::settings_get_str("foo_player"));
 		$hostname = Irssi::settings_get_str("foo_host");
@@ -1289,7 +1289,7 @@ if (HAVE_IRSSI) {
 	$| = 1;
 	binmode( STDERR, ":encoding(utf-8)" );
 	binmode( STDOUT, ":encoding(utf-8)" );
-	
+
 	my $comment = undef;
 	my $command = undef;
 
