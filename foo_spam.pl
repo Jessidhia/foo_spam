@@ -929,7 +929,7 @@ sub get_help_string {
 Required Plugin: foo_controlserver
 URL: http://www.hydrogenaudio.org/forums/index.php?showtopic=38114
 Required settings: Control Server tab:
-* Server Port: 3333
+* Server Port: $hostport
 * UTF-8 output/input: checked
 * Base delimiter: |||
 Recommended setting:
@@ -1263,10 +1263,10 @@ if (HAVE_IRSSI) {
 		weechat::config_set_plugin( "player", "foobar2000" );
 	}
 	unless ( weechat::config_is_set_plugin("port") ) {
-		weechat::config_set_plugin( "port", "3300" );
+		weechat::config_set_plugin( "port", $hostport );
 	}
 	unless ( weechat::config_is_set_plugin("hostname") ) {
-		weechat::config_set_plugin( "hostname", "127.0.0.1" );
+		weechat::config_set_plugin( "hostname", $hostname );
 	}
 
 	weechat::hook_command( 'np', 'alias to /aud',
