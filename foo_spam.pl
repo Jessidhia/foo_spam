@@ -963,7 +963,7 @@ Usage:
 \002To choose which player will be used (default is foobar2000), do:
  * Irssi: /set foo_player <player>
  * X-Chat: /set_foo_player <player>
- * WeeChat: /set plugins.var.foo_spam.player <player>
+ * WeeChat: /set plugins.var.perl.foo_spam.player <player>
 For now, /foo_control only supports foobar2000.
 foobar2000 and banshee have specific implementations. Other players will use the MPRIS interface.
 \002----------------------------------------------------------------------------------------------------
@@ -988,7 +988,7 @@ of them are. Some tags return different values, like %codec_profile%.
 To change the format, you can use:
  * Irssi: /set foo_format <new format> (use /set -default to reset)
  * X-Chat: /set_foo_format <new format> (use /set_foo_format default to reset)
- * WeeChat: /set plugins.var.foo_spam.format <new format> (use /unset to reset)
+ * WeeChat: /set plugins.var.perl.foo_spam.format <new format> (use /unset to reset)
 You can also edit the script and change the value of \$default_format, in case
 you use an unsupported client.
 
