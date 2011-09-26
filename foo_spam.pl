@@ -101,9 +101,9 @@ our $settings_file = undef;    # Only used by Xchat
 sub open_telnet {
 	eval { require Net::Telnet; 1 } or ( warn "Can't find Net::Telnet" and return undef );
 	$telnet
-	    = new Net::Telnet( Port => $hostport, Timeout => 10, Errmode => 'return' )
+	    = new Net::Telnet( Timeout => 10, Errmode => 'return' )
 	    if not defined($telnet);
-	$telnet_open = $telnet->open($hostname);
+	$telnet_open = $telnet->open( Host => $hostname, Port => $hostport );
 	unless ($telnet_open) {
 		irc_print(
 			"Error connecting to foobar2000! Make sure fb2k is running.");
