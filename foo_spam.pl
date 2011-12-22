@@ -193,15 +193,15 @@ sub info_clean {
 
 	for ( ( 'length', 'playback_time', 'playback_time_remaining' ) ) {
 		unless ( defined( $info->{$_} ) ) {
-			my $t = $info->{"${_}_seconds"};
-
-			my @u = ( 0, 0 );
-			for ( my $i = 1; $i >= 0; $i-- ) {
-				$u[$i] = $t % 60;
-				$t = int( $t/60 );
+			if ( my $t = $info->{"${_}_seconds"} ) {
+				my @u = ( 0, 0 );
+				for ( my $i = 1; $i >= 0; $i-- ) {
+					$u[$i] = $t % 60;
+					$t = int( $t/60 );
+				}
+				$info->{$_}
+				    = sprintf( '%s%02d:%02d', $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
 			}
-			$info->{$_}
-			    = sprintf( '%s%02d:%02d', $t > 0 ? "$t:" : "", @u[ 0, 1 ] );
 		}
 	}
 
