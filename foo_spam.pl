@@ -65,6 +65,7 @@ use Encode;
 use Getopt::Long;
 use File::Path;
 use Time::HiRes qw(usleep);
+use List::Util;
 
 BEGIN {
 	*HAVE_XCHAT = Xchat->can('register')     ? sub {1} : sub {0};
@@ -986,7 +987,7 @@ if (HAVE_IRSSI) {
 
 		my $str = get_np_string( decode( "UTF-8", $data ) );
 		if ((defined($str)) && ($witem) &&
-				($witem->{'type'} ~~ ['CHANNEL', 'QUERY'])) {
+				(any { $witem->{'type'} eq $_ } qw{CHANNEL QUERY})) {
 			$witem->command( encode_utf8("me $str") );
 		}
 	};
