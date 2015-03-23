@@ -366,50 +366,24 @@ sub get_track_info_banshee {
 	my %info;
 
 	foreach (keys %btags) {
-		given ($_) {
-			when ("album-artist") {
-				$info{'album artist'} = $btags{$_};
-			}
-			when ("track-number") {
-				$info{'track number'} = int($btags{$_});
-			}
-			when ("track-count") {
-				$info{totaltracks} = $btags{$_};
-			}
-			when ("disc-number") {
-				$info{discnumber} = $btags{$_};
-			}
-			when ("disc-count") {
-				$info{totaldiscs} = $btags{$_};
-			}
-			when ("name") {
-				$info{title} = $btags{$_};
-			}
-			when ("bit-rate") { # NOTE: does not update in real time
-				$info{bitrate} = $btags{$_};
-			}
-			when ("genre") {
-				$info{genre} = $btags{$_};
-			}
-			when ("album") {
-				$info{album} = $btags{$_};
-			}
-			when ("artist") {
-				$info{artist} = $btags{$_};
-			}
-			when ("year") { # NOTE: does not return string dates, only integer (known bug)
-				$info{date} = $btags{$_};
-			}
-			when ("mime-type") { # NOTE: not equivalent to foobar2000's, but close enough
-				$info{codec} = $btags{$_};
-			}
-			when ("bpm") {
-				$info{bpm} = $btags{$_} if $btags{$_};
-			}
-			when ("score") { # TODO: add the same to foobar2000
-				$info{rating} = $btags{$_};
-			}
-		}
+		if    ($_ eq "album-artist") { $info{'album artist'} = $btags{$_} }
+		elsif ($_ eq "track-number") { $info{'track number'} = int($btags{$_}) }
+		elsif ($_ eq "track-count")  { $info{totaltracks}    = $btags{$_} }
+		elsif ($_ eq "disc-number")  { $info{discnumber}     = $btags{$_} }
+		elsif ($_ eq "disc-count")   { $info{totaldiscs}     = $btags{$_} }
+		elsif ($_ eq "name")         { $info{title}          = $btags{$_} }
+		# NOTE: does not update in real time
+		elsif ($_ eq "bit-rate")     { $info{bitrate}        = $btags{$_} }
+		elsif ($_ eq "genre")        { $info{genre}          = $btags{$_} }
+		elsif ($_ eq "album")        { $info{album}          = $btags{$_} }
+		elsif ($_ eq "artist")       { $info{artist}         = $btags{$_} }
+		# NOTE: does not return string dates, only integer (known bug)
+		elsif ($_ eq "year")         { $info{date}           = $btags{$_} }
+		# NOTE: not equivalent to foobar2000's, but close enough
+		elsif ($_ eq "mime-type")    { $info{codec}          = $btags{$_} }
+		elsif ($_ eq "bpm")          { $info{bpm}            = $btags{$_} if $btags{$_} }
+		# TODO: add the same to foobar2000
+		elsif ($_ eq "score")        { $info{rating}         = $btags{$_} }
 	}
 
 	$info{'state'} = $bplayer->GetCurrentState;
@@ -446,48 +420,19 @@ sub get_track_info_mpris {
 	my %info;
 
 	foreach (keys %$metadata) {
-		given ($_) {
-			when('location') {
-				$info{url} = $metadata->{$_};
-			}
-			when('title') {
-				$info{title} = $metadata->{$_};
-			}
-			when('artist') {
-				$info{artist} = $metadata->{$_};
-				$info{'album artist'} = $info{artist};
-			}
-			when('album') {
-				$info{album} = $metadata->{$_};
-			}
-			when('tracknumber') {
-				$info{'track number'} = $metadata->{$_};
-			}
-			when('time') {
-				$info{length_seconds} = $metadata->{$_};
-			}
-			when('genre') {
-				$info{genre} = $metadata->{$_};
-			}
-			when('comment') {
-				$info{file_comment} = $metadata->{$_};
-			}
-			when('rating') {
-				$info{rating} = $metadata->{$_};
-			}
-			when('date') {
-				$info{date} = $metadata->{$_};
-			}
-			when('arturl') {
-				$info{arturl} = $metadata->{$_};
-			}
-			when('audio-bitrate') {
-				$info{bitrate} = $metadata->{$_};
-			}
-			when('audio-samplerate') {
-				$info{samplerate} = $metadata->{$_};
-			}
-		}
+		if    ($_ eq 'location')         { $info{url}            = $metadata->{$_} }
+		elsif ($_ eq 'title')            { $info{title}          = $metadata->{$_} }
+		elsif ($_ eq 'artist')           { $info{artist}         = $metadata->{$_}; $info{'album artist'} = $info{artist} }
+		elsif ($_ eq 'album')            { $info{album}          = $metadata->{$_} }
+		elsif ($_ eq 'tracknumber')      { $info{'track number'} = $metadata->{$_} }
+		elsif ($_ eq 'time')             { $info{length_seconds} = $metadata->{$_} }
+		elsif ($_ eq 'genre')            { $info{genre}          = $metadata->{$_} }
+		elsif ($_ eq 'comment')          { $info{file_comment}   = $metadata->{$_} }
+		elsif ($_ eq 'rating')           { $info{rating}         = $metadata->{$_} }
+		elsif ($_ eq 'date')             { $info{date}           = $metadata->{$_} }
+		elsif ($_ eq 'arturl')           { $info{arturl}         = $metadata->{$_} }
+		elsif ($_ eq 'audio-bitrate')    { $info{bitrate}        = $metadata->{$_} }
+		elsif ($_ eq 'audio-samplerate') { $info{samplerate}     = $metadata->{$_} }
 	}
 
 	$info{player} = $player;
@@ -508,17 +453,9 @@ sub get_track_info_mpris {
 }
 
 sub get_track_info {
-	given($player) {
-		when("foobar2000") {
-			return get_track_info_fb2k(@_);
-		}
-		when("banshee") {
-			return get_track_info_banshee(@_);
-		}
-		default {
-			return get_track_info_mpris(@_);
-		}
-	}
+	if    ($player eq "foobar2000") { return get_track_info_fb2k(@_); }
+	elsif ($player eq "banshee")    { return get_track_info_banshee(@_); }
+	else                            { return get_track_info_mpris(@_); }
 }
 
 sub parse_format {
@@ -1113,12 +1050,11 @@ if (HAVE_IRSSI) {
 		my $setting = shift;
 		my $value = shift;
 		my $ref;
-		given ($setting) {
-			when ('player')   { $ref = \$player; }
-			when ('format')   { $ref = \$format; }
-			when ('hostname') { $ref = \$hostname; }
-			when ('port')     { $ref = \$hostport; }
-		}
+		if    ($setting eq 'player')   { $ref = \$player }
+		elsif ($setting eq 'format')   { $ref = \$format }
+		elsif ($setting eq 'hostname') { $ref = \$hostname }
+		elsif ($setting eq 'port')     { $ref = \$hostport }
+
 		if (not defined $ref) {
 			Xchat::print("Unknown setting: $setting.\n");
 			return;
@@ -1184,13 +1120,11 @@ if (HAVE_IRSSI) {
 	if ( open($settings_file, "<", Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
 		for (<$settings_file>) {
 			chomp;
-			given ($_) {
-				when (/^format=(.*)/)   { $format   = $1; }
-				when (/^player=(.*)/)   { $player   = lc($1); }
-				when (/^hostname=(.*)/) { $hostname = $1; }
-				when (/^port=(.*)/)     { $hostport = $1; }
-				default {                 $format = $_ if $_; }
-			}
+			if    (/^format=(.*)/)   { $format   = $1 }
+			elsif (/^player=(.*)/)   { $player   = lc($1) }
+			elsif (/^hostname=(.*)/) { $hostname = $1 }
+			elsif (/^port=(.*)/)     { $hostport = $1 }
+			elsif ($_)               { $format   = $_ }
 		}
 		close($settings_file);
 	}
@@ -1298,15 +1232,9 @@ if (HAVE_IRSSI) {
 	my $command = undef;
 
 	GetOptions( 'player=s' => sub {
-		            given($_[1]) {
-			            when("foobar2000") {
-				            $player = "foobar2000";
-			            } when("banshee") {
-				            $player = "banshee";
-			            } default {
-				            $player = lc($_[1]);
-			            }
-		            }
+	                if    ($_[1] eq "foobar2000") { $player = "foobar2000" }
+	                elsif ($_[1] eq "banshee")    { $player = "banshee" }
+	                else                          { $player = lc($_[1]) }
 	            },
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
