@@ -312,9 +312,13 @@ sub get_track_info_fb2k {
 		}
 	}
 
-	my @ver = split (/ /, $info->{'_foobar2000_version'}, 2);
-	$info->{'player'} = $ver[0];
-	$info->{'version'} = $ver[1];
+	if (defined($info->{'_foobar2000_version'})) {
+		my @ver = split (/ /, $info->{'_foobar2000_version'}, 2);
+		$info->{'player'} = $ver[0];
+		$info->{'version'} = $ver[1];
+	} else {
+		$info->{'player'} = $player;
+	}
 
 	$info->{'isplaying'} = 1;
 	$info->{'ispaused'}  = 0;
