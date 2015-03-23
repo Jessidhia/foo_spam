@@ -20,7 +20,6 @@
 use v5.10.1;
 use utf8;
 use strict;
-use feature ':5.10';
 use warnings;
 use version 0.77;
 
