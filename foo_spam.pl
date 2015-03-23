@@ -1232,9 +1232,9 @@ if (HAVE_IRSSI) {
 	my $command = undef;
 
 	GetOptions( 'player=s' => sub {
-	                if    ($_[1] eq "foobar2000") { $player = "foobar2000" }
-	                elsif ($_[1] eq "banshee")    { $player = "banshee" }
-	                else                          { $player = lc($_[1]) }
+	            	if    ($_[1] eq "foobar2000") { $player = "foobar2000" }
+	            	elsif ($_[1] eq "banshee")    { $player = "banshee" }
+	            	else                          { $player = lc($_[1]) }
 	            },
 	            'comment=s' => \$comment,
 	            'format=s' => \$format,
@@ -1242,7 +1242,7 @@ if (HAVE_IRSSI) {
 	            'host=s' => \$hostname,
 	            'port=s' => \$hostport,
 	            'help' => sub {
-		            $_ = <<EOF;
+	            	$_ = <<EOF;
 foo_spam $VERSION - prints the currently playing track from foobar2000, Banshee or an MPRIS compliant player
 Supports command line, X-Chat, irssi and weechat.
 Options:
@@ -1253,8 +1253,8 @@ Options:
     --host=ADDRESS     The address of the computer running foobar2000. Default is localhost. Foobar2000 only.
     --port=PORT        The port number foobar2000 is listening at. Default is 3333. Foobar2000 only.
 EOF
-		            print $_;
-		            exit;
+	            	print $_;
+	            	exit;
 	            });
 
 	*irc_print = sub {
