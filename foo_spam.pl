@@ -1158,7 +1158,7 @@ if (HAVE_IRSSI) {
 } elsif (HAVE_WEECH) {
 	*print_now_playing = sub {
 		my ( $data, $buffer, @args ) = @_;
-		$format   = weechat::config_get_plugin("format");
+		$format   = decode("UTF-8", weechat::config_get_plugin("format"));
 		$player   = lc(weechat::config_get_plugin("player"));
 		$hostport = weechat::config_get_plugin("port");
 		$hostname = weechat::config_get_plugin("hostname");
