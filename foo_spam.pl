@@ -979,10 +979,10 @@ if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $server, $witem ) = @_;
 
-		$format = Irssi::settings_get_str("foo_format");
-		$player = lc(Irssi::settings_get_str("foo_player"));
-		$hostname = Irssi::settings_get_str("foo_host");
-		$hostport = Irssi::settings_get_str("foo_port");
+		$format = decode_utf8(Irssi::settings_get_str("foo_format"));
+		$player = decode_utf8(lc(Irssi::settings_get_str("foo_player")));
+		$hostname = decode_utf8(Irssi::settings_get_str("foo_host"));
+		$hostport = decode_utf8(Irssi::settings_get_str("foo_port"));
 
 		my $str = get_np_string( decode( "UTF-8", $data ) );
 		if ((defined($str)) && ($witem) &&
@@ -994,33 +994,33 @@ if (HAVE_IRSSI) {
 	*print_foo_help = sub {
 		my $help = get_help_string();
 		$help =~ s/%/%%/g;
-		Irssi::print($help);
+		Irssi::print(encode_utf8($help));
 	};
 
 	*print_foo_format_help = sub {
 		my $help = get_foo_format_help_string();
 		$help =~ s/%/%%/g;
-		Irssi::print($help);
+		Irssi::print(encode_utf8($help));
 	};
 
 	*irc_print = sub {
-		Irssi::print( $_[0] );
+		Irssi::print( encode_utf8($_[0]) );
 	};
 
 	*print_foo_tags = sub {
 		my $help = get_foo_taglist_string();
 		$help =~ s/%/%%/g;
-		Irssi::print($help);
+		Irssi::print(encode_utf8($help));
 	};
 
 	*print_foo_funcs = sub {
-		Irssi::print( get_funclist_string() );
+		Irssi::print( encode_utf8(get_funclist_string()) );
 	};
 
-	Irssi::settings_add_str( "foo_spam", "foo_format", $format );
-	Irssi::settings_add_str( "foo_spam", "foo_player", $player );
-	Irssi::settings_add_str( "foo_spam", "foo_host", $hostname );
-	Irssi::settings_add_str( "foo_spam", "foo_port", $hostport );
+	Irssi::settings_add_str( "foo_spam", "foo_format", encode_utf8($format) );
+	Irssi::settings_add_str( "foo_spam", "foo_player", encode_utf8($player) );
+	Irssi::settings_add_str( "foo_spam", "foo_host", encode_utf8($hostname) );
+	Irssi::settings_add_str( "foo_spam", "foo_port", encode_utf8($hostport) );
 	Irssi::command_bind( 'aud',         'print_now_playing' );
 	Irssi::command_bind( 'np',          'print_now_playing' );
 	Irssi::command_bind( 'foo_control', sub { send_command(shift) } );
@@ -1066,7 +1066,7 @@ if (HAVE_IRSSI) {
 		if (($setting eq 'format') && ($value eq 'default')) { $format = $default_format; }
 		else { $$ref = $value; }
 		Xchat::print("Changed $setting to $$ref\n");
-		if (open( $settings_file, ">", Xchat::get_info('xchatdir') . "/foo_spam.conf" )) {
+		if (open( $settings_file, ">:encoding(utf-8)", Xchat::get_info('xchatdir') . "/foo_spam.conf" )) {
 			print $settings_file "player=$player\n";
 			print $settings_file "format=$format\n";
 			print $settings_file "hostname=$hostname\n";
@@ -1117,7 +1117,7 @@ if (HAVE_IRSSI) {
 		return Xchat::EAT_ALL();
 	};
 
-	if ( open($settings_file, "<", Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
+	if ( open($settings_file, "<:encoding(utf-8)", Xchat::get_info('xchatdir') . "/foo_spam.conf") ) {
 		for (<$settings_file>) {
 			chomp;
 			if    (/^format=(.*)/)   { $format   = $1 }
@@ -1159,11 +1159,11 @@ if (HAVE_IRSSI) {
 	*print_now_playing = sub {
 		my ( $data, $buffer, @args ) = @_;
 		$format   = decode("UTF-8", weechat::config_get_plugin("format"));
-		$player   = lc(weechat::config_get_plugin("player"));
-		$hostport = weechat::config_get_plugin("port");
-		$hostname = weechat::config_get_plugin("hostname");
+		$player   = lc(decode("UTF-8", weechat::config_get_plugin("player")));
+		$hostport = decode("UTF-8", weechat::config_get_plugin("port"));
+		$hostname = decode("UTF-8", weechat::config_get_plugin("hostname"));
 		my $str = get_np_string(
-			$args[0] ? decode( "UTF-8", join( ' ', @args ) ) : undef );
+			@args ? decode( "UTF-8", join( ' ', @args ) ) : undef );
 		if ( defined($str) ) {
 			weechat::command( $buffer, encode_utf8("/me $str") );
 		}
@@ -1260,7 +1260,7 @@ EOF
 	*irc_print = sub {
 		print( STDERR "@_\n" ) if @_;
 	};
-	$format = join( " ", @ARGV ) if $ARGV[0];
+	$format = join( " ", map { decode_utf8($_) } @ARGV) if @ARGV;
 	send_command($command) if ($command);
 	my $np = get_np_string($comment);
 	print "$np\n" if $np;
